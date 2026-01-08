@@ -46,15 +46,15 @@ class MigrationVerifier:
         """Log test result"""
         if status == 'passed':
             self.test_results["passed"] += 1
-            logger.info(f"✓ {test_name}: PASSED - {message}")
+            logger.info(f" {test_name}: PASSED - {message}")
         elif status == 'warning':
             self.test_results["warnings"] += 1
-            logger.warning(f"⚠ {test_name}: WARNING - {message}")
+            logger.warning(f" {test_name}: WARNING - {message}")
         else:  # failed
             self.test_results["failed"] += 1
             error_msg = f"{test_name}: FAILED - {message}"
             self.test_results["errors"].append(error_msg)
-            logger.error(f"✗ {error_msg}")
+            logger.error(f" {error_msg}")
     
     def get_connection(self):
         """Get database connection"""
@@ -69,14 +69,14 @@ class MigrationVerifier:
         try:
             with open(self.baseline_file, 'r') as f:
                 self.baseline = json.load(f)
-            logger.info(f"✓ Loaded baseline from: {self.baseline_file}")
+            logger.info(f" Loaded baseline from: {self.baseline_file}")
             logger.info(f"  Baseline timestamp: {self.baseline['timestamp']}")
             return True
         except FileNotFoundError:
-            logger.error(f"✗ Baseline file not found: {self.baseline_file}")
+            logger.error(f" Baseline file not found: {self.baseline_file}")
             return False
         except json.JSONDecodeError:
-            logger.error(f"✗ Invalid baseline file format: {self.baseline_file}")
+            logger.error(f" Invalid baseline file format: {self.baseline_file}")
             return False
     
     def capture_current_state(self):
@@ -116,7 +116,7 @@ class MigrationVerifier:
                 else:
                     continue
                 
-                logger.info(f"📊 Processing {full_table}...")
+                logger.info(f" Processing {full_table}...")
                 
                 try:
                     # Get row count
@@ -140,7 +140,7 @@ class MigrationVerifier:
                 except Exception as e:
                     logger.warning(f"   Could not process {full_table}: {e}")
             
-            logger.info("\n✓ Current state captured successfully")
+            logger.info("\n Current state captured successfully")
             
         finally:
             conn.close()
@@ -458,22 +458,22 @@ class MigrationVerifier:
         logger.info(f"Baseline:     {self.baseline['timestamp']}")
         logger.info(f"Verified:     {self.current['timestamp']}")
         logger.info(f"\nTotal Tests:  {total}")
-        logger.info(f"✓ Passed:     {self.test_results['passed']}")
-        logger.info(f"⚠ Warnings:   {self.test_results['warnings']}")
-        logger.info(f"✗ Failed:     {self.test_results['failed']}")
+        logger.info(f" Passed:     {self.test_results['passed']}")
+        logger.info(f" Warnings:   {self.test_results['warnings']}")
+        logger.info(f" Failed:     {self.test_results['failed']}")
         
         if self.test_results['failed'] > 0:
             logger.info("\n" + "─" * 70)
             logger.info("CRITICAL FAILURES:")
             logger.info("─" * 70)
             for error in self.test_results['errors']:
-                logger.error(f"  ✗ {error}")
+                logger.error(f"   {error}")
         
         logger.info("="*70)
         
         if total > 0:
             success_rate = ((self.test_results['passed'] + self.test_results['warnings']) / total) * 100
-            logger.info(f"\n🎯 Success Rate: {success_rate:.1f}%")
+            logger.info(f"\n Success Rate: {success_rate:.1f}%")
         
         return self.test_results
 
@@ -515,11 +515,18 @@ def main():
         available_driver = "SQL Server"
         print(f"Warning: Could not detect drivers, using default: {e}")
     
+    # Remote SQL Server connection with SQL Authentication
+    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
+    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
+    
     connection_string = (
-        f"DRIVER={{{available_driver}}};"
-        "SERVER=(localdb)\\MSSQLLocalDB;"
-        "DATABASE=BookServiceContext;"
-        "Trusted_Connection=yes;"
+        f"DRIVER={{{driver_to_use}}};"
+        "SERVER=10.134.77.68,1433;"  # Using IP address directly
+        "DATABASE=BookStore-Master;"
+        "UID=testuser;"
+        "PWD=TestDb@26#!;"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
     )
     
     # Get baseline file
@@ -531,12 +538,11 @@ def main():
         baseline_files = [f for f in os.listdir('.') if f.startswith('baseline_') and f.endswith('.json')]
         if baseline_files:
             baseline_file = sorted(baseline_files)[-1]
-            print(f"Found baseline file: {baseline_file}")
-            use_it = input("Use this baseline? (y/n): ")
-            if use_it.lower() != 'y':
-                baseline_file = input("Enter baseline filename: ")
+            print(f"Using baseline file: {baseline_file}")
         else:
-            baseline_file = input("Enter baseline filename: ")
+            print(f"\n❌ No baseline files found in current directory")
+            print("\n📋 Please create a baseline first using: python create_baseline.py")
+            sys.exit(1)
     
     if not os.path.exists(baseline_file):
         print(f"\n❌ Baseline file not found: {baseline_file}")

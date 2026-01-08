@@ -343,11 +343,18 @@ def main():
         available_driver = "SQL Server"
         print(f"Warning: Could not detect drivers, using default: {e}")
     
+    # Remote SQL Server connection with SQL Authentication
+    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
+    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
+    
     connection_string = (
-        f"DRIVER={{{available_driver}}};"
-        "SERVER=(localdb)\\MSSQLLocalDB;"
-        "DATABASE=BookServiceContext;"
-        "Trusted_Connection=yes;"
+        f"DRIVER={{{driver_to_use}}};"
+        "SERVER=10.134.77.68,1433;"  # Using IP address directly
+        "DATABASE=BookStore-Master;"
+        "UID=testuser;"
+        "PWD=TestDb@26#!;"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
     )
     
     # Allow custom connection string from command line
@@ -363,15 +370,10 @@ def main():
         print(f"   Connection: {connection_string}")
         sys.exit(1)
     
-    # Ask for confirmation
+    # Info message
     print("\n" + "="*70)
-    print("This will create a baseline snapshot of the current database state.")
+    print("Creating baseline snapshot of current database state...")
     print("="*70)
-    proceed = input("\nProceed with baseline creation? (y/n): ")
-    
-    if proceed.lower() != 'y':
-        print("Cancelled.")
-        sys.exit(0)
     
     try:
         # Create baseline

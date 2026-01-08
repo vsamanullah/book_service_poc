@@ -49,11 +49,11 @@ class TestDataPopulator:
             cursor.execute("SELECT @@VERSION")
             version = cursor.fetchone()[0]
             conn.close()
-            logger.info(f"✓ Connected to database successfully")
+            logger.info(f" Connected to database successfully")
             logger.info(f"  Database Version: {version[:100]}...")
             return True
         except Exception as e:
-            logger.error(f"✗ Database connection failed: {e}")
+            logger.error(f" Database connection failed: {e}")
             return False
     
     def get_table_structure(self, conn):
@@ -99,6 +99,7 @@ class TestDataPopulator:
             FROM sys.tables t
             INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
             WHERE s.name NOT IN ('sys', 'INFORMATION_SCHEMA')
+                AND t.name NOT IN ('__MigrationHistory')
             ORDER BY HasForeignKeys DESC, TableName
         """)
         
@@ -119,9 +120,13 @@ class TestDataPopulator:
             
             logger.info(f"Found {len(tables)} tables to clear\n")
             
-            # Disable foreign key constraints temporarily
+            # Disable foreign key constraints for specific tables only
             logger.info("⚙  Disabling foreign key constraints...")
-            cursor.execute("EXEC sp_MSforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL'")
+            for schema, table_name in tables:
+                try:
+                    cursor.execute(f"ALTER TABLE [{schema}].[{table_name}] NOCHECK CONSTRAINT ALL")
+                except Exception as e:
+                    logger.warning(f"  Could not disable constraints on {schema}.{table_name}: {e}")
             conn.commit()
             
             # Delete from each table
@@ -136,20 +141,24 @@ class TestDataPopulator:
                         # Delete all records
                         cursor.execute(f"DELETE FROM {full_table}")
                         conn.commit()
-                        logger.info(f"🗑  Deleted {count:>5} rows from {schema}.{table_name}")
+                        logger.info(f"  Deleted {count:>5} rows from {schema}.{table_name}")
                     else:
-                        logger.info(f"⊘  Skipped {schema}.{table_name} (already empty)")
+                        logger.info(f"  Skipped {schema}.{table_name} (already empty)")
                         
                 except Exception as e:
-                    logger.warning(f"⚠  Could not delete from {schema}.{table_name}: {e}")
+                    logger.warning(f"  Could not delete from {schema}.{table_name}: {e}")
             
-            # Re-enable foreign key constraints
+            # Re-enable foreign key constraints for specific tables only
             logger.info("\n⚙  Re-enabling foreign key constraints...")
-            cursor.execute("EXEC sp_MSforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'")
+            for schema, table_name in tables:
+                try:
+                    cursor.execute(f"ALTER TABLE [{schema}].[{table_name}] WITH CHECK CHECK CONSTRAINT ALL")
+                except Exception as e:
+                    logger.warning(f"  Could not re-enable constraints on {schema}.{table_name}: {e}")
             conn.commit()
             
             logger.info("="*70)
-            logger.info("✓ All records deleted successfully")
+            logger.info(" All records deleted successfully")
             logger.info("="*70)
             
         except Exception as e:
@@ -163,7 +172,7 @@ class TestDataPopulator:
         """Populate Authors table with test data"""
         cursor = conn.cursor()
         
-        logger.info(f"\n📝 Populating Authors table with {count} records...")
+        logger.info(f"\n Populating Authors table with {count} records...")
         
         # Check table structure
         cursor.execute("""
@@ -181,6 +190,7 @@ class TestDataPopulator:
                       'William', 'Mary', 'James', 'Patricia', 'Charles', 'Jennifer', 'Daniel']
         last_names = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 
                      'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson']
+        nationalities = ['USA', 'UK', 'Canada', 'Australia', 'Ireland', 'Germany', 'France', 'Spain']
         
         author_ids = []
         
@@ -191,14 +201,23 @@ class TestDataPopulator:
             
             first_name = random.choice(first_names)
             last_name = random.choice(last_names)
-            author_name = f"{first_name} {last_name} [{timestamp_str}.{microseconds:06d}]"
+            unique_suffix = f"[{timestamp_str}.{microseconds:06d}]"
+            
+            # Generate author data matching actual schema
+            import uuid
+            author_guid = str(uuid.uuid4())
+            birth_date = datetime.now() - timedelta(days=random.randint(20000, 30000))  # 55-82 years old
+            nationality = random.choice(nationalities)
+            bio = f"Bio for {first_name} {last_name} {unique_suffix}"
+            email = f"{first_name.lower()}.{last_name.lower()}.{i}@example.com"
+            affiliation = f"Publisher {i+1}"
             
             try:
                 cursor.execute("""
-                    INSERT INTO Authors (Name)
-                    OUTPUT INSERTED.Id
-                    VALUES (?)
-                """, author_name)
+                    INSERT INTO Authors (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
+                    OUTPUT INSERTED.ID
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, author_guid, first_name, last_name + " " + unique_suffix, birth_date, nationality, bio, email, affiliation)
                 
                 author_id = cursor.fetchone()[0]
                 author_ids.append(author_id)
@@ -219,7 +238,7 @@ class TestDataPopulator:
         """Populate Books table with test data"""
         cursor = conn.cursor()
         
-        logger.info(f"\n📚 Populating Books table with {count} records...")
+        logger.info(f"\n Populating Books table with {count} records...")
         
         # Check table structure
         cursor.execute("""
@@ -254,6 +273,25 @@ class TestDataPopulator:
         
         book_ids = []
         
+        # Get existing genre IDs from the database or create a default genre
+        cursor.execute("SELECT TOP 1 ID FROM Genres")
+        genre_result = cursor.fetchone()
+        
+        if not genre_result:
+            # No genres exist, create a default one
+            logger.info("   No genres found, creating default genre...")
+            cursor.execute("""
+                INSERT INTO Genres (Name)
+                OUTPUT INSERTED.ID
+                VALUES (?)
+            """, "General")
+            default_genre_id = cursor.fetchone()[0]
+            conn.commit()
+            logger.info(f"   Created default genre with ID: {default_genre_id}")
+        else:
+            default_genre_id = genre_result[0]
+            logger.info(f"   Using existing genre ID: {default_genre_id}")
+        
         for i in range(count):
             # Create unique timestamp-based identifier
             timestamp_str = (self.timestamp + timedelta(seconds=i)).strftime('%Y%m%d%H%M%S')
@@ -263,15 +301,21 @@ class TestDataPopulator:
             topic = random.choice(topics)
             title = template.format(topic) + f" [TS:{timestamp_str}.{microseconds:06d}]"
             
-            # Assign to random author
+            # Assign to random author (using ID not AuthorId GUID)
             author_id = random.choice(author_ids)
+            year = random.randint(2000, 2026)
+            price = round(random.uniform(9.99, 99.99), 2)
+            description = f"Description for {topic} book {i+1}"
+            genre_id = default_genre_id
+            issue_date = datetime.now() - timedelta(days=random.randint(0, 3650))
+            rating = random.randint(1, 5)
             
             try:
                 cursor.execute("""
-                    INSERT INTO Books (Title, AuthorId)
-                    OUTPUT INSERTED.Id
-                    VALUES (?, ?)
-                """, title, author_id)
+                    INSERT INTO Books (AuthorId, Title, Year, Price, Description, GenreId, IssueDate, Rating)
+                    OUTPUT INSERTED.ID
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, author_id, title, year, price, description, genre_id, issue_date, rating)
                 
                 book_id = cursor.fetchone()[0]
                 book_ids.append(book_id)
@@ -322,7 +366,7 @@ class TestDataPopulator:
             logger.info("="*70)
             
         except Exception as e:
-            logger.error(f"\n❌ Error populating database: {e}")
+            logger.error(f"\n Error populating database: {e}")
             conn.rollback()
             raise
         finally:
@@ -342,12 +386,13 @@ class TestDataPopulator:
             cursor.execute("""
                 SELECT 
                     s.name + '.' + t.name AS TableName,
-                    SUM(p.rows) AS RowCount
+                    SUM(p.rows) AS RowCnt
                 FROM sys.tables t
                 INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
                 INNER JOIN sys.partitions p ON t.object_id = p.object_id
                 WHERE p.index_id IN (0, 1)
                     AND s.name NOT IN ('sys', 'INFORMATION_SCHEMA')
+                    AND t.name NOT IN ('__MigrationHistory')
                 GROUP BY s.name, t.name
                 ORDER BY s.name, t.name
             """)
@@ -369,16 +414,14 @@ class TestDataPopulator:
 
 def main():
     """Main entry point"""
-    print("""
-╔══════════════════════════════════════════════════════════════════╗
-║   Database Test Data Populator                                  ║
-║   Delete all records and populate with fresh test data          ║
-╚══════════════════════════════════════════════════════════════════╝
+    print("""  
+           Database Test Data Populator 
+           Delete all records and populate with fresh test data 
     """)
     
     # Parse command line arguments
     if len(sys.argv) < 2:
-        print("❌ Error: Missing record count parameter")
+        print(" Error: Missing record count parameter")
         print("\nUsage:")
         print("  python populate_test_data.py <number_of_records>")
         print("\nExample:")
@@ -391,7 +434,7 @@ def main():
         if record_count <= 0:
             raise ValueError("Record count must be positive")
     except ValueError as e:
-        print(f"❌ Error: Invalid record count '{sys.argv[1]}'")
+        print(f" Error: Invalid record count '{sys.argv[1]}'")
         print("   Record count must be a positive integer")
         sys.exit(1)
     
@@ -421,11 +464,18 @@ def main():
         available_driver = "SQL Server"
         print(f"Warning: Could not detect drivers, using default: {e}")
     
+    # Remote SQL Server connection with SQL Authentication
+    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
+    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
+    
     connection_string = (
-        f"DRIVER={{{available_driver}}};"
-        "SERVER=(localdb)\\MSSQLLocalDB;"
-        "DATABASE=BookServiceContext;"
-        "Trusted_Connection=yes;"
+        f"DRIVER={{{driver_to_use}}};"
+        "SERVER=10.134.77.68,1433;"  # Using IP address directly
+        "DATABASE=BookStore-Master;"
+        "UID=testuser;"
+        "PWD=TestDb@26#!;"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
     )
     
     # Allow custom connection string from environment or additional args
@@ -437,7 +487,7 @@ def main():
     
     # Test connection
     if not populator.test_connection():
-        print("\n❌ Cannot connect to database. Please check connection string.")
+        print("\n Cannot connect to database. Please check connection string.")
         print(f"   Connection: {connection_string}")
         sys.exit(1)
     
@@ -447,18 +497,13 @@ def main():
     print("="*70)
     populator.print_summary()
     
-    # Ask for confirmation
+    # Info about what will happen
     print("\n" + "="*70)
-    print("⚠️  WARNING: This will DELETE ALL existing records!")
+    print("  Starting: DELETE ALL records and populate with new data")
     print("="*70)
-    print(f"Then populate with {record_count} new test records per table")
+    print(f"Will populate with {record_count} new test records per table")
     print("(Authors: {}, Books: {})".format(record_count, record_count * 2))
-    print("="*70)
-    proceed = input("\nAre you sure you want to proceed? (yes/no): ")
-    
-    if proceed.lower() not in ['yes', 'y']:
-        print("Cancelled.")
-        sys.exit(0)
+    print("="*70 + "\n")
     
     try:
         # Delete all records
@@ -471,23 +516,19 @@ def main():
         populator.print_summary()
         
         print("\n" + "="*70)
-        print("✅ TEST DATA POPULATED SUCCESSFULLY")
+        print(" TEST DATA POPULATED SUCCESSFULLY")
         print("="*70)
-        print(f"\n📊 Summary:")
+        print(f"\n Summary:")
         print(f"   • Deleted all existing records")
         print(f"   • Created {record_count} authors")
         print(f"   • Created {record_count * 2} books")
         print(f"   • All records have unique timestamp-based identifiers")
-        print("\n📋 Next Steps:")
-        print("   1. Run: python create_baseline.py")
-        print("   2. Perform your migration/changes")
-        print("   3. Run: python verify_migration.py")
         print("="*70)
         
         sys.exit(0)
         
     except Exception as e:
-        logger.error(f"\n❌ Error: {e}")
+        logger.error(f"\n Error: {e}")
         sys.exit(1)
 
 
