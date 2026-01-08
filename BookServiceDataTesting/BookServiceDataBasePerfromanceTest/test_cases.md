@@ -2,29 +2,43 @@
 
 ## Overview
 
-This document describes the test cases for the **BookServiceContext Database Performance Testing Tool**. The tool is designed to validate database performance under various load conditions and monitor SQL Server behavior during concurrent operations.
+This document describes the test cases for the **BookServiceContext Database Performance Testing Tool**. The tool is designed to validate database performance under various load conditions and monitor SQL Server behavior during concurrent operations across **6 main business tables**.
+
+### Tables Under Test
+- **Authors** - Author information with full biographical data
+- **Books** - Book catalog with pricing and ratings
+- **Genres** - Book genre categories
+- **Customers** - Customer records with registration details
+- **Rentals** - Rental transactions and status tracking
+- **Stocks** - Book inventory and availability management
 
 ## What Are We Testing?
 
 ### Primary Objectives
 
 1. **Database Performance Under Load**
-   - Measure response times for CRUD operations
-   - Identify performance bottlenecks
+   - Measure response times for CRUD operations across all tables
+   - Identify performance bottlenecks in multi-table scenarios
    - Evaluate scalability with concurrent connections
    - Monitor resource utilization (CPU, Memory, I/O)
 
 2. **Concurrent Connection Handling**
    - Test database behavior with multiple simultaneous connections
-   - Detect deadlocks and lock contention
+   - Detect deadlocks and lock contention across related tables
    - Validate connection pooling efficiency
-   - Assess transaction throughput
+   - Assess transaction throughput with foreign key constraints
 
 3. **Operation-Specific Performance**
-   - SELECT query performance (various patterns)
-   - INSERT operation throughput
-   - UPDATE statement efficiency
-   - DELETE operation handling
+   - SELECT query performance (single table and JOINs)
+   - INSERT operation throughput with FK validation
+   - UPDATE statement efficiency across multiple tables
+   - DELETE operation handling with referential integrity
+
+4. **Multi-Table Transaction Testing**
+   - Cross-table operations (Rentals → Customers/Stocks)
+   - Foreign key constraint performance
+   - Complex JOIN queries
+   - Transaction isolation under load
 
 4. **System Health Monitoring**
    - SQL Server CPU utilization
@@ -42,38 +56,75 @@ This document describes the test cases for the **BookServiceContext Database Per
 Database: BookStore-Master
 
 Tables:
-1. Authors
-   - Id (INT, PRIMARY KEY, IDENTITY)
+1. Authors (Parent Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
    - AuthorId (UNIQUEIDENTIFIER)
    - FirstName (NVARCHAR)
    - LastName (NVARCHAR)
-   - BirthDate (DATETIME2, NULLABLE)
-   - Nationality (NVARCHAR, NULLABLE)
-   - Bio (NVARCHAR, NULLABLE)
-   - Email (NVARCHAR, NULLABLE)
-   - Affiliation (NVARCHAR, NULLABLE)
+   - BirthDate (DATETIME)
+   - Nationality (NVARCHAR)
+   - Bio (NVARCHAR)
+   - Email (NVARCHAR)
+   - Affiliation (NVARCHAR)
 
-2. Genres
-   - Id (INT, PRIMARY KEY, IDENTITY)
+2. Genres (Lookup Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
    - Name (NVARCHAR)
 
-3. Books
-   - Id (INT, PRIMARY KEY, IDENTITY)
+3. Books (Parent Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
    - Title (NVARCHAR)
-   - AuthorId (INT, FOREIGN KEY -> Authors.Id)
+   - AuthorId (INT, FOREIGN KEY → Authors.ID)
    - Year (INT)
    - Price (DECIMAL)
-   - Description (NVARCHAR, NULLABLE)
-   - GenreId (INT, FOREIGN KEY -> Genres.Id)
-   - IssueDate (DATETIME2, NULLABLE)
-   - Rating (INT, NULLABLE)
+   - Description (NVARCHAR)
+   - GenreId (INT, FOREIGN KEY → Genres.ID)
+   - IssueDate (DATETIME)
+   - Rating (TINYINT)
+   - Image (NVARCHAR, NULLABLE)
+   - TrailURI (NVARCHAR, NULLABLE)
+
+4. Customers (Parent Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
+   - FirstName (NVARCHAR)
+   - LastName (NVARCHAR)
+   - Email (NVARCHAR)
+   - IdentityCard (NVARCHAR)
+   - UniqueKey (UNIQUEIDENTIFIER)
+   - DateOfBirth (DATETIME)
+   - Mobile (NVARCHAR, NULLABLE)
+   - RegistrationDate (DATETIME)
+
+5. Stocks (Child Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
+   - BookId (INT, FOREIGN KEY → Books.ID)
+   - UniqueKey (UNIQUEIDENTIFIER)
+   - IsAvailable (BIT)
+
+6. Rentals (Transaction Table)
+   - ID (INT, PRIMARY KEY, IDENTITY)
+   - CustomerId (INT, FOREIGN KEY → Customers.ID)
+   - StockId (INT, FOREIGN KEY → Stocks.ID)
+   - RentalDate (DATETIME)
+   - ReturnedDate (DATETIME, NULLABLE)
+   - Status (NVARCHAR)
+
+Foreign Key Relationships:
+- Books → Authors (BookId)
+- Books → Genres (GenreId)
+- Stocks → Books (BookId)
+- Rentals → Customers (CustomerId)
+- Rentals → Stocks (StockId)
 ```
 
 ### Test Data
 - **Genres**: 1 default genre ("General") - auto-seeded
-- **Authors**: 20 pre-seeded records (famous authors with FirstName/LastName)
+- **Authors**: 20 pre-seeded records with full biographical data
 - **Books**: Generated dynamically during tests
-- **Test Records**: Marked with "Performance Test Book" prefix
+- **Customers**: 20 pre-seeded customer records
+- **Stocks**: ~60 stock items (3 copies per book) - auto-seeded
+- **Rentals**: Generated dynamically during tests
+- **Test Records**: All marked with timestamp-based unique identifiers
 
 ---
 
@@ -85,19 +136,25 @@ Tables:
 
 **Pre-conditions**:
 - Database exists and is accessible
-- User has DELETE permissions on Books, Authors, and Genres tables
+- User has DELETE permissions on all tables
 
 **Test Steps**:
-1. Execute `python run_and_monitor_db_test.py --cleanup`
-2. Verify all records are deleted from Books table
-3. Verify all records are deleted from Authors table
-4. Verify all records are deleted from Genres table
-5. Verify Authors identity seed is reset to 0
+1. Execute `python run_and_monitor_db_test.py --env target --cleanup`
+2. Verify all records are deleted from Rentals table (FK child)
+3. Verify all records are deleted from Stocks table (FK child)
+4. Verify all records are deleted from Books table
+5. Verify all records are deleted from Authors table
+6. Verify all records are deleted from Customers table
+7. Verify identity seeds are reset (if permissions allow)
 
 **Expected Results**:
+- Rentals table: 0 records
+- Stocks table: 0 records
 - Books table: 0 records
-- Authors table: 0 records  
-- Genres table: 0 records
+- Authors table: 0 records
+- Customers table: 0 records
+- Genres table: Preserved (not deleted)
+- Deletion respects foreign key constraints (correct order)
 - No errors during cleanup
 - Success message displayed
 
@@ -116,17 +173,23 @@ Tables:
 **Test Steps**:
 1. Run seeding process (automatic during test execution)
 2. Verify 1 default genre is inserted ("General")
-3. Verify 20 author records are inserted
-4. Verify author names match expected list (FirstName + LastName format)
+3. Verify 20 author records are inserted with complete biographical data
+4. Verify 20 customer records are inserted with registration details
+5. Verify stocks are created (3 copies per book when books exist)
 
 **Expected Results**:
 - Genres table: 1 record
-- Authors table: 20 records with unique AuthorId GUIDs
-- No duplicate authors
-- All author names are valid (FirstName and LastName populated)
-- Success message displayed
+- Authors table: 20 records with complete data (FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
+- Customers table: 20 records with unique emails and identity cards
+- Stocks table: ~30 records when books are seeded
+- All GUIDs properly generated
+- No duplicate records
+- All foreign key relationships valid
 
-**Success Criteria**:   1 genre and 20 authors successfully inserted
+**Success Criteria**:
+-   All tables seeded successfully
+-   Foreign keys properly linked
+-   No constraint violations
 
 ---
 
@@ -448,6 +511,171 @@ Total Operations: 200,000
 
 ---
 
+### TC-012a: Multi-Table Operation Distribution
+
+**Objective**: Verify operations are distributed across all 4 main tables (Books, Customers, Rentals, Stocks)
+
+**Test Configuration**:
+```
+Connections: 20
+Operations per Connection: 100
+Test Type: Mixed
+Total Operations: 2000
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py --env target -c 20 -o 100 -t Mixed`
+2. Review summary report for operation distribution
+3. Verify operations across all tables:
+   - Books operations (40% - SELECT, INSERT, UPDATE, DELETE)
+   - Customer operations (25% - SELECT, INSERT, UPDATE, DELETE)
+   - Rental operations (20% - SELECT, INSERT, UPDATE)
+   - Stock operations (15% - SELECT, INSERT, UPDATE)
+
+**Expected Results**:
+- Operations distributed across all 4 table types
+- Each table type shows multiple operation types
+- Proper weighting: Books > Customers > Rentals > Stocks
+- Foreign key operations succeed (Rentals referencing Customers/Stocks)
+
+**Success Criteria**:
+-   All 4 table types have operations
+-   Operation distribution roughly matches weights (±10%)
+-   >75% success rate across all table types
+-   No orphaned FK records
+
+---
+
+### TC-012b: Customer Operations Performance
+
+**Objective**: Test Customer table CRUD operations under load
+
+**Test Configuration**:
+```
+Connections: 15
+Operations per Connection: 150
+Focus: Customer operations (INSERT, SELECT, UPDATE, DELETE)
+```
+
+**Test Steps**:
+1. Seed customers (20 records)
+2. Execute mixed operations
+3. Monitor operations:
+   - CUSTOMER_INSERT: New customer registrations
+   - CUSTOMER_SELECT_BY_ID: Customer lookup
+   - CUSTOMER_SELECT_BY_EMAIL: Email-based search
+   - CUSTOMER_SELECT_ALL: List all customers
+   - CUSTOMER_COUNT: Count operations
+   - CUSTOMER_UPDATE: Modify customer details
+   - CUSTOMER_DELETE: Remove customers (if no rentals)
+
+**Expected Results**:
+- All customer operations complete successfully
+- Email uniqueness maintained
+- UniqueKey (GUID) properly generated
+- SELECT operations faster than INSERT/UPDATE
+
+**Success Criteria**:
+-   >90% success rate for SELECT operations
+-   >80% success rate for INSERT operations
+-   Average SELECT response < 10ms
+-   Average INSERT response < 50ms
+
+---
+
+### TC-012c: Rental Transaction Performance
+
+**Objective**: Test Rental transaction operations with FK constraints
+
+**Test Configuration**:
+```
+Connections: 10
+Operations per Connection: 100
+Focus: Rental operations with FK validation
+```
+
+**Test Steps**:
+1. Seed customers and stocks
+2. Execute rental operations:
+   - RENTAL_INSERT: Create new rentals (requires valid CustomerId and StockId)
+   - RENTAL_SELECT_ACTIVE: Query active rentals
+   - RENTAL_SELECT_BY_CUSTOMER: Customer rental history
+   - RENTAL_UPDATE: Update rental status (Active → Returned)
+   - RENTAL_COUNT: Count operations
+
+**Expected Results**:
+- Rental INSERTs validate FK constraints
+- Cannot create rental with invalid CustomerId
+- Cannot create rental with invalid StockId
+- Status updates work correctly
+- ReturnedDate set properly when status = 'Returned'
+
+**Success Criteria**:
+-   >85% success rate (some failures expected for invalid FKs)
+-   All successful rentals have valid FK references
+-   No orphaned rental records
+-   Average response time < 100ms
+
+---
+
+### TC-012d: Stock Inventory Operations
+
+**Objective**: Test Stock inventory management operations
+
+**Test Configuration**:
+```
+Connections: 12
+Operations per Connection: 120
+Focus: Stock availability tracking
+```
+
+**Test Steps**:
+1. Seed books and stocks (3 copies per book)
+2. Execute stock operations:
+   - STOCK_INSERT: Add new stock items
+   - STOCK_SELECT_AVAILABLE: Find available books
+   - STOCK_SELECT_BY_BOOK: Get all copies of a book
+   - STOCK_UPDATE: Toggle availability
+   - STOCK_COUNT: Count operations
+
+**Expected Results**:
+- Stock items properly linked to Books via BookId
+- IsAvailable bit field works correctly
+- UniqueKey (GUID) properly generated
+- Multiple copies per book tracked correctly
+
+**Success Criteria**:
+-   >90% success rate
+-   All stock items have valid BookId references
+-   IsAvailable toggles work correctly
+-   Average response time < 20ms
+
+---
+
+### TC-012e: Foreign Key Constraint Validation
+
+**Objective**: Verify FK constraints are enforced under load
+
+**Test Steps**:
+1. Attempt to create Books with invalid AuthorId → Should fail
+2. Attempt to create Rentals with invalid CustomerId → Should fail
+3. Attempt to create Rentals with invalid StockId → Should fail
+4. Attempt to create Stocks with invalid BookId → Should fail
+5. Verify error messages are proper FK violations
+
+**Expected Results**:
+- All FK violations caught by database
+- Proper error messages returned
+- No orphaned records created
+- Database maintains referential integrity
+
+**Success Criteria**:
+-   100% FK validation enforcement
+-   No orphaned records after test
+-   Clear error messages for violations
+
+---
+
 ### TC-013: Error Handling and Recovery
 
 **Objective**: Verify system handles errors gracefully
@@ -659,10 +887,76 @@ Recommendations:
 
 ## Conclusion
 
-This test suite provides comprehensive coverage of database performance testing scenarios. By executing these test cases, you can:
+This test suite provides comprehensive coverage of database performance testing scenarios across **6 main business tables**. By executing these test cases, you can:
 
-- Validate database performance under various loads
-- Identify bottlenecks and optimization opportunities
+- Validate database performance under various loads across all tables
+- Identify bottlenecks and optimization opportunities in multi-table scenarios
+- Verify foreign key constraint performance
+- Test referential integrity under concurrent load
+- Assess scalability with complex table relationships
+- Monitor cross-table transaction behavior
+
+### Test Coverage Summary
+
+| Table | Operations Tested | FK Relationships | Test Cases |
+|-------|------------------|------------------|------------|
+| **Authors** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003, TC-012e |
+| **Books** | SELECT, INSERT, UPDATE, DELETE | Child of Authors/Genres, Parent to Stocks | TC-003, TC-005-008, TC-012a |
+| **Genres** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003 |
+| **Customers** | SELECT, INSERT, UPDATE, DELETE | Parent to Rentals | TC-003, TC-012a, TC-012b |
+| **Rentals** | SELECT, INSERT, UPDATE | Child of Customers/Stocks | TC-003, TC-012a, TC-012c, TC-012e |
+| **Stocks** | SELECT, INSERT, UPDATE | Child of Books, Parent to Rentals | TC-003, TC-012a, TC-012d, TC-012e |
+
+### Operation Distribution in Mixed Tests
+
+When running Mixed test type, operations are weighted as follows:
+- **Books**: 40% (primary table with full CRUD)
+- **Customers**: 25% (active user management)
+- **Rentals**: 20% (transaction processing)
+- **Stocks**: 15% (inventory management)
+
+### Key Performance Indicators
+
+**Target Metrics**:
+- SELECT operations: < 10ms average
+- INSERT operations: < 50ms average  
+- UPDATE operations: < 75ms average
+- DELETE operations: < 100ms average
+- Overall success rate: > 85% under normal load
+- FK constraint validation: 100% enforcement
+
+**Resource Thresholds**:
+- CPU utilization: < 80% sustained
+- Memory usage: Stable, no leaks
+- Connection count: < configured max
+- Lock waits: < 5% of operations
+- Deadlocks: 0 (zero tolerance)
+
+### Typical Test Workflow
+
+```bash
+# 1. Clean database
+python run_and_monitor_db_test.py --env target --cleanup
+
+# 2. Run comprehensive load test
+python run_and_monitor_db_test.py --env target -c 20 -o 100 -t Mixed -d 120
+
+# 3. Review results
+# - Check database_test_results/load_test_*.csv
+# - Review database_test_results/summary_*.txt
+# - Analyze database_test_results/metrics_*.csv
+
+# 4. Run specific table tests if needed
+python run_and_monitor_db_test.py --env target -c 10 -o 50 -t Mixed
+```
+
+### Version History
+- **v1.0** (Initial): Basic Books testing only
+- **v2.0** (Current): Comprehensive 6-table testing with FK validation, multi-table operations, and referential integrity testing
+
+---
+
+**END OF TEST CASES DOCUMENT**
 - Establish performance baselines
 - Monitor system health during load
 - Generate data-driven performance reports

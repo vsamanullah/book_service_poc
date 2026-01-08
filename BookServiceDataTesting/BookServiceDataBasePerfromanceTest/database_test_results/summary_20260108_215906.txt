@@ -1,0 +1,58 @@
+
+DATABASE LOAD TEST SUMMARY
+============================================================
+
+Database Information:
+  Server: 10.134.77.68,1433
+  Database: BookStore-Master
+  Driver: ODBC Driver 18 for SQL Server
+  Authentication: SQL Authentication (User: testuser)
+
+Test Configuration:
+  Concurrent Connections: 10
+  Operations per Connection: 50
+  Test Type: Mixed
+  Total Operations: 500
+  Test Duration: 12.43 seconds
+
+Results:
+  Successful Operations: 389 (77.8%)
+  Failed Operations: 111 (22.2%)
+  Throughput: 31.29 operations/second
+
+Response Times (milliseconds):
+  Average: 8.1 ms
+  Median: 2.02 ms
+  Min: 0.91 ms
+  Max: 855.46 ms
+  95th Percentile: 3.84 ms
+  99th Percentile: 187.52 ms
+
+Operations by Type:
+  CUSTOMER_COUNT: 23 (5.91%)
+  CUSTOMER_DELETE: 3 (0.77%)
+  CUSTOMER_INSERT: 39 (10.03%)
+  CUSTOMER_SELECT_ALL: 12 (3.08%)
+  CUSTOMER_SELECT_BY_EMAIL: 12 (3.08%)
+  CUSTOMER_SELECT_BY_ID: 7 (1.8%)
+  CUSTOMER_UPDATE: 19 (4.88%)
+  DELETE: 7 (1.8%)
+  RENTAL_COUNT: 16 (4.11%)
+  RENTAL_SELECT_ACTIVE: 19 (4.88%)
+  RENTAL_SELECT_ALL: 21 (5.4%)
+  RENTAL_SELECT_BY_CUSTOMER: 8 (2.06%)
+  RENTAL_UPDATE: 13 (3.34%)
+  SELECT_BY_ID: 16 (4.11%)
+  SELECT_COUNT: 13 (3.34%)
+  SELECT_TOP100: 23 (5.91%)
+  SELECT_WITH_JOIN: 12 (3.08%)
+  STOCK_COUNT: 19 (4.88%)
+  STOCK_SELECT_ALL: 25 (6.43%)
+  STOCK_SELECT_AVAILABLE: 26 (6.68%)
+  STOCK_SELECT_BY_BOOK: 23 (5.91%)
+  STOCK_UPDATE: 25 (6.43%)
+  UPDATE: 8 (2.06%)
+
+Results saved to:
+  database_test_results\load_test_20260108_215906.csv
+  database_test_results\summary_20260108_215906.txt

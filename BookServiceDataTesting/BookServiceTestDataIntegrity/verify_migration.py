@@ -35,12 +35,49 @@ class MigrationVerifier:
         self.baseline = None
         self.current = None
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Extract database connection details
+        self.db_info = self._extract_db_info(connection_string)
+        
         self.test_results = {
             "passed": 0,
             "failed": 0,
             "warnings": 0,
             "errors": []
         }
+    
+    def _extract_db_info(self, connection_string: str) -> dict:
+        """Extract database connection information from connection string"""
+        db_info = {
+            'server': 'Unknown',
+            'database': 'Unknown',
+            'driver': 'Unknown',
+            'auth_type': 'Unknown'
+        }
+        
+        try:
+            # Parse connection string
+            parts = connection_string.split(';')
+            for part in parts:
+                if '=' in part:
+                    key, value = part.split('=', 1)
+                    key = key.strip().upper()
+                    value = value.strip()
+                    
+                    if key == 'SERVER':
+                        db_info['server'] = value
+                    elif key == 'DATABASE':
+                        db_info['database'] = value
+                    elif key == 'DRIVER':
+                        db_info['driver'] = value.strip('{}')
+                    elif key == 'UID':
+                        db_info['auth_type'] = f'SQL Authentication (User: {value})'
+                    elif 'TRUSTED_CONNECTION' in key and value.lower() in ['yes', 'true']:
+                        db_info['auth_type'] = 'Windows Authentication'
+        except:
+            pass
+        
+        return db_info
     
     def log_test(self, test_name: str, status: str, message: str = ""):
         """Log test result"""
@@ -453,9 +490,22 @@ class MigrationVerifier:
         logger.info("MIGRATION VERIFICATION REPORT")
         logger.info("="*70)
         
+        # Database information
+        logger.info("\nDatabase Information:")
+        logger.info(f"  Server:         {self.db_info['server']}")
+        logger.info(f"  Database:       {self.db_info['database']}")
+        logger.info(f"  Driver:         {self.db_info['driver']}")
+        logger.info(f"  Authentication: {self.db_info['auth_type']}")
+        
+        # Check if baseline has database_info (for new baselines)
+        if 'database_info' in self.baseline:
+            logger.info("\nBaseline Database Information:")
+            logger.info(f"  Server:         {self.baseline['database_info']['server']}")
+            logger.info(f"  Database:       {self.baseline['database_info']['database']}")
+        
         total = self.test_results['passed'] + self.test_results['failed'] + self.test_results['warnings']
         
-        logger.info(f"Baseline:     {self.baseline['timestamp']}")
+        logger.info(f"\nBaseline:     {self.baseline['timestamp']}")
         logger.info(f"Verified:     {self.current['timestamp']}")
         logger.info(f"\nTotal Tests:  {total}")
         logger.info(f" Passed:     {self.test_results['passed']}")

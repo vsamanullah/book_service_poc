@@ -1,5 +1,0 @@
-# For API testing (if needed)
-requests==2.31.0
-
-# For database migration testing
-pyodbc==5.0.1

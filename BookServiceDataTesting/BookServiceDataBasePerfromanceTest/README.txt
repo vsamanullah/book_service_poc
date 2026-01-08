@@ -29,11 +29,12 @@ REQUIREMENTS
 - Required Python packages:
   * pyodbc
   * (standard library: argparse, threading, time, csv, random, statistics, 
-     datetime, pathlib, concurrent.futures)
+     datetime, pathlib, concurrent.futures, json)
 
 - SQL Server with ODBC Driver 17 or higher
-- Database: BookServiceContext
-- Tables: Books, Authors (with proper schema)
+- Database: BookStore-Master or BookServiceContext
+- Tables: Books, Authors, Genres (with proper schema)
+- Configuration File: db_config.json (optional, for environment switching)
 
 Installation:
   pip install pyodbc
@@ -45,28 +46,85 @@ The tool expects the following tables:
 
 Authors Table:
   - Id (INT, PRIMARY KEY, IDENTITY)
+  - AuthorId (UNIQUEIDENTIFIER)
+  - FirstName (NVARCHAR)
+  - LastName (NVARCHAR)
+  - BirthDate (DATETIME2)
+  - Nationality (NVARCHAR)
+  - Bio (NVARCHAR)
+  - Email (NVARCHAR)
+  - Affiliation (NVARCHAR)
+
+Genres Table:
+  - Id (INT, PRIMARY KEY, IDENTITY)
   - Name (NVARCHAR)
 
 Books Table:
   - Id (INT, PRIMARY KEY, IDENTITY)
   - Title (NVARCHAR)
   - AuthorId (INT, FOREIGN KEY -> Authors.Id)
-  - Price (DECIMAL)
   - Year (INT)
-  - Genre (NVARCHAR)
+  - Price (DECIMAL)
+  - Description (NVARCHAR)
+  - GenreId (INT, FOREIGN KEY -> Genres.Id)
+  - IssueDate (DATETIME2)
+  - Rating (DECIMAL)
+
+
+CONFIGURATION SETUP
+-------------------
+Optional: Create db_config.json for easy environment switching:
+
+{
+  "environments": {
+    "source": {
+      "server": "10.134.77.68,1433",
+      "database": "BookStore-Master-Source",
+      "authentication": "SQL",
+      "username": "testuser",
+      "password": "TestDb@26#!",
+      "driver": "ODBC Driver 18 for SQL Server",
+      "encrypt": "yes",
+      "trust_certificate": "yes"
+    },
+    "target": {
+      "server": "10.134.77.68,1433",
+      "database": "BookStore-Master",
+      "authentication": "SQL",
+      "username": "testuser",
+      "password": "TestDb@26#!",
+      "driver": "ODBC Driver 18 for SQL Server",
+      "encrypt": "yes",
+      "trust_certificate": "yes"
+    },
+    "local": {
+      "server": "(localdb)\\MSSQLLocalDB",
+      "database": "BookServiceContext",
+      "authentication": "Windows",
+      "driver": "ODBC Driver 17 for SQL Server"
+    }
+  }
+}
 
 
 USAGE
 -----
 
-Basic Usage:
+Basic Usage (default connection):
   python run_and_monitor_db_test.py
 
+Using Environment Configuration:
+  python run_and_monitor_db_test.py --env target
+  python run_and_monitor_db_test.py --env source -c 50 -o 200
+
 With Custom Parameters:
-  python run_and_monitor_db_test.py -c 50 -o 200 -t Mixed -d 180
+  python run_and_monitor_db_test.py -c 50 -o 200 -t Mixed -d 180 --env target
+
+Using Direct Connection String:
+  python run_and_monitor_db_test.py --conn "DRIVER={...};SERVER=...;..."
 
 Cleanup Database:
-  python run_and_monitor_db_test.py --cleanup
+  python run_and_monitor_db_test.py --cleanup --env target
 
 
 COMMAND LINE OPTIONS
@@ -88,7 +146,22 @@ COMMAND LINE OPTIONS
     How long to run the monitoring (in seconds)
     Default: 120
 
+--env <environment>
+    Environment to use from db_config.json
+    Options: source, target, local
+    Example: --env target
+
+--config <path>
+    Path to configuration file
+    Default: db_config.json
+    Example: --config my_config.json
+
+--conn <connection_string>
+    Direct database connection string (overrides --env)
+    Example: --conn "DRIVER={ODBC Driver 18 for SQL Server};SERVER=...;"
+
 -s, --connection-string <string>
+    (Deprecated: use --conn instead)
     Custom database connection string
     Default: Driver={ODBC Driver 17 for SQL Server};
              Server=(localdb)\MSSQLLocalDB;
@@ -166,6 +239,7 @@ load_test_YYYYMMDD_HHMMSS.csv
 
 summary_YYYYMMDD_HHMMSS.txt
   - Statistical summary of the load test
+  - Database connection details (server, database, driver, authentication)
   - Response time percentiles (95th, 99th)
   - Throughput calculations
   - Operation type breakdown
@@ -183,17 +257,26 @@ EXAMPLES
 Example 1: Quick test with default settings
   python run_and_monitor_db_test.py
 
-Example 2: Heavy load test
-  python run_and_monitor_db_test.py -c 100 -o 500 -d 300
+Example 2: Test target environment from config
+  python run_and_monitor_db_test.py --env target
 
-Example 3: Read-only test
-  python run_and_monitor_db_test.py -c 30 -o 200 -t Read
+Example 3: Test source environment with custom parameters
+  python run_and_monitor_db_test.py --env source -c 50 -o 200 -d 180
 
-Example 4: Write-intensive test
-  python run_and_monitor_db_test.py -c 20 -o 300 -t Write
+Example 4: Heavy load test on target
+  python run_and_monitor_db_test.py --env target -c 100 -o 500 -d 300
 
-Example 5: Cleanup database only
-  python run_and_monitor_db_test.py --cleanup
+Example 5: Read-only test on local database
+  python run_and_monitor_db_test.py --env local -c 30 -o 200 -t Read
+
+Example 6: Write-intensive test with direct connection
+  python run_and_monitor_db_test.py -c 20 -o 300 -t Write --conn "DRIVER={...};..."
+
+Example 7: Cleanup target database
+  python run_and_monitor_db_test.py --cleanup --env target
+
+Example 8: Using custom config file
+  python run_and_monitor_db_test.py --env production --config prod_config.json
 
 
 PERFORMANCE METRICS EXPLAINED

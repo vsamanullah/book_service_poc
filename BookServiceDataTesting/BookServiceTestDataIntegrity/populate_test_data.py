@@ -12,6 +12,8 @@ import sys
 from datetime import datetime, timedelta
 import logging
 import random
+import argparse
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +25,86 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+
+def load_config(config_path: str) -> dict:
+    """Load configuration from JSON file"""
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        logger.info(f"Loaded configuration from: {config_path}")
+        return config
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {config_path}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in configuration file: {e}")
+        sys.exit(1)
+
+
+def build_connection_string(env_config: dict) -> str:
+    """Build connection string from environment configuration"""
+    server = env_config['server']
+    database = env_config['database']
+    
+    # Check for authentication type (supports both old and new config formats)
+    auth_type = env_config.get('authentication', 'SQL')  # Default to SQL if not specified
+    use_windows_auth = env_config.get('trusted_connection', False) or auth_type == 'Windows'
+    
+    if not use_windows_auth and ('username' in env_config and env_config['username']):
+        # SQL Authentication
+        username = env_config['username']
+        password = env_config['password']
+        driver = env_config.get('driver', 'ODBC Driver 18 for SQL Server')
+        
+        conn_str = (
+            f"DRIVER={{{driver}}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            f"UID={username};"
+            f"PWD={password};"
+        )
+        
+        # Add optional encryption settings
+        encrypt = env_config.get('encrypt', False)
+        trust_cert = env_config.get('trust_certificate', False)
+        
+        if isinstance(encrypt, bool):
+            conn_str += f"Encrypt={'yes' if encrypt else 'no'};"
+        elif 'encrypt' in env_config:
+            conn_str += f"Encrypt={env_config['encrypt']};"
+            
+        if isinstance(trust_cert, bool):
+            conn_str += f"TrustServerCertificate={'yes' if trust_cert else 'no'};"
+        elif 'trust_certificate' in env_config:
+            conn_str += f"TrustServerCertificate={env_config['trust_certificate']};"
+            
+        return conn_str
+    else:
+        # Windows Authentication
+        driver = env_config.get('driver', 'ODBC Driver 18 for SQL Server')
+        return (
+            f"DRIVER={{{driver}}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            "Trusted_Connection=yes;"
+        )
+
+
+def get_connection_from_config(env_name: str, config_path: str = "../db_config.json") -> str:
+    """Get connection string for specified environment from config file"""
+    config = load_config(config_path)
+    
+    if env_name not in config['environments']:
+        logger.error(f"Environment '{env_name}' not found in configuration")
+        logger.info(f"Available environments: {', '.join(config['environments'].keys())}")
+        sys.exit(1)
+    
+    env_config = config['environments'][env_name]
+    conn_str = build_connection_string(env_config)
+    logger.info(f"Using environment: {env_name}")
+    
+    return conn_str
 
 
 class TestDataPopulator:
@@ -332,6 +414,136 @@ class TestDataPopulator:
         
         return book_ids
     
+    def populate_customers(self, conn, count: int):
+        """Populate Customers table with test data"""
+        cursor = conn.cursor()
+        
+        logger.info(f"\n Populating Customers table with {count} records...")
+        
+        first_names = ['Alice', 'Bob', 'Carol', 'David', 'Eve', 'Frank', 'Grace', 'Henry', 
+                      'Ivy', 'Jack', 'Kate', 'Leo', 'Mia', 'Noah', 'Olivia']
+        last_names = ['Anderson', 'Baker', 'Carter', 'Davis', 'Evans', 'Foster', 'Green', 
+                     'Harris', 'Irving', 'Jackson', 'King', 'Lewis', 'Moore', 'Nelson']
+        
+        customer_ids = []
+        
+        for i in range(count):
+            timestamp_str = (self.timestamp + timedelta(seconds=i)).strftime('%Y%m%d%H%M%S')
+            microseconds = (self.timestamp + timedelta(microseconds=i*1000)).microsecond
+            
+            first_name = random.choice(first_names)
+            last_name = random.choice(last_names)
+            unique_suffix = f"[{timestamp_str}.{microseconds:06d}]"
+            
+            import uuid
+            unique_key = str(uuid.uuid4())
+            email = f"{first_name.lower()}.{last_name.lower()}.{i}@customer.com"
+            identity_card = f"ID{1000+i}-{timestamp_str}"
+            date_of_birth = datetime.now() - timedelta(days=random.randint(6570, 25550))  # 18-70 years old
+            mobile = f"555{random.randint(1000000, 9999999)}"
+            registration_date = datetime.now() - timedelta(days=random.randint(0, 365))
+            
+            try:
+                cursor.execute("""
+                    INSERT INTO Customers (FirstName, LastName, Email, IdentityCard, UniqueKey, DateOfBirth, Mobile, RegistrationDate)
+                    OUTPUT INSERTED.ID
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, first_name + " " + unique_suffix, last_name, email, identity_card, unique_key, 
+                     date_of_birth, mobile, registration_date)
+                
+                customer_id = cursor.fetchone()[0]
+                customer_ids.append(customer_id)
+                
+                if (i + 1) % 10 == 0 or i == count - 1:
+                    logger.info(f"   Created {i + 1}/{count} customers...")
+                    
+            except Exception as e:
+                logger.error(f"   Error creating customer {i+1}: {e}")
+                raise
+        
+        conn.commit()
+        logger.info(f"✓ Created {len(customer_ids)} customers successfully")
+        
+        return customer_ids
+    
+    def populate_stocks(self, conn, book_ids: list, copies_per_book: int = 3):
+        """Populate Stocks table with test data"""
+        cursor = conn.cursor()
+        
+        total_stocks = len(book_ids) * copies_per_book
+        logger.info(f"\n Populating Stocks table with {total_stocks} records ({copies_per_book} copies per book)...")
+        
+        stock_ids = []
+        counter = 0
+        
+        for book_id in book_ids:
+            for copy in range(copies_per_book):
+                import uuid
+                unique_key = str(uuid.uuid4())
+                is_available = random.choice([True, True, True, False])  # 75% available
+                
+                try:
+                    cursor.execute("""
+                        INSERT INTO Stocks (BookId, UniqueKey, IsAvailable)
+                        OUTPUT INSERTED.ID
+                        VALUES (?, ?, ?)
+                    """, book_id, unique_key, is_available)
+                    
+                    stock_id = cursor.fetchone()[0]
+                    stock_ids.append(stock_id)
+                    counter += 1
+                    
+                    if counter % 50 == 0 or counter == total_stocks:
+                        logger.info(f"   Created {counter}/{total_stocks} stocks...")
+                        
+                except Exception as e:
+                    logger.error(f"   Error creating stock for book {book_id}: {e}")
+                    raise
+        
+        conn.commit()
+        logger.info(f"✓ Created {len(stock_ids)} stocks successfully")
+        
+        return stock_ids
+    
+    def populate_rentals(self, conn, customer_ids: list, stock_ids: list, rental_count: int):
+        """Populate Rentals table with test data"""
+        cursor = conn.cursor()
+        
+        logger.info(f"\n Populating Rentals table with {rental_count} records...")
+        
+        rental_ids = []
+        statuses = ['Active', 'Returned', 'Returned', 'Returned']  # 75% returned
+        
+        for i in range(rental_count):
+            customer_id = random.choice(customer_ids)
+            stock_id = random.choice(stock_ids)
+            status = random.choice(statuses)
+            
+            rental_date = datetime.now() - timedelta(days=random.randint(1, 180))
+            returned_date = rental_date + timedelta(days=random.randint(7, 30)) if status == 'Returned' else None
+            
+            try:
+                cursor.execute("""
+                    INSERT INTO Rentals (CustomerId, StockId, RentalDate, ReturnedDate, Status)
+                    OUTPUT INSERTED.ID
+                    VALUES (?, ?, ?, ?, ?)
+                """, customer_id, stock_id, rental_date, returned_date, status)
+                
+                rental_id = cursor.fetchone()[0]
+                rental_ids.append(rental_id)
+                
+                if (i + 1) % 10 == 0 or i == rental_count - 1:
+                    logger.info(f"   Created {i + 1}/{rental_count} rentals...")
+                    
+            except Exception as e:
+                logger.error(f"   Error creating rental {i+1}: {e}")
+                raise
+        
+        conn.commit()
+        logger.info(f"✓ Created {len(rental_ids)} rentals successfully")
+        
+        return rental_ids
+    
     def populate_database(self):
         """Main method to populate database with test data"""
         logger.info("\n" + "="*70)
@@ -358,11 +570,26 @@ class TestDataPopulator:
             books_count = self.record_count * 2
             book_ids = self.populate_books(conn, author_ids, books_count)
             
+            # Populate Customers (independent table)
+            customer_ids = self.populate_customers(conn, self.record_count)
+            
+            # Populate Stocks (child table with FK to Books)
+            # Create 3 copies per book
+            stock_ids = self.populate_stocks(conn, book_ids, copies_per_book=3)
+            
+            # Populate Rentals (child table with FK to Customers and Stocks)
+            # Create some rentals (about half the number of stocks)
+            rentals_count = len(stock_ids) // 2
+            rental_ids = self.populate_rentals(conn, customer_ids, stock_ids, rentals_count)
+            
             logger.info("\n" + "="*70)
             logger.info("✓ DATABASE POPULATED SUCCESSFULLY")
             logger.info("="*70)
-            logger.info(f"  Authors created: {len(author_ids)}")
-            logger.info(f"  Books created:   {len(book_ids)}")
+            logger.info(f"  Authors created:   {len(author_ids)}")
+            logger.info(f"  Books created:     {len(book_ids)}")
+            logger.info(f"  Customers created: {len(customer_ids)}")
+            logger.info(f"  Stocks created:    {len(stock_ids)}")
+            logger.info(f"  Rentals created:   {len(rental_ids)}")
             logger.info("="*70)
             
         except Exception as e:
@@ -420,67 +647,95 @@ def main():
     """)
     
     # Parse command line arguments
-    if len(sys.argv) < 2:
-        print(" Error: Missing record count parameter")
-        print("\nUsage:")
-        print("  python populate_test_data.py <number_of_records>")
-        print("\nExample:")
-        print("  python populate_test_data.py 25")
-        print("  This will create 25 authors and 50 books (2x ratio)")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description='Populate database with test data',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Using environment from config file:
+  python populate_test_data.py 25 --env source
+  
+  # Using custom config file:
+  python populate_test_data.py 50 --env target --config my_config.json
+  
+  # Using direct connection string:
+  python populate_test_data.py 100 --conn "DRIVER={...};SERVER=...;..."
+  
+  # Default (without config):
+  python populate_test_data.py 25
+        """
+    )
     
-    try:
-        record_count = int(sys.argv[1])
-        if record_count <= 0:
-            raise ValueError("Record count must be positive")
-    except ValueError as e:
-        print(f" Error: Invalid record count '{sys.argv[1]}'")
+    parser.add_argument('count', type=int,
+                       help='Number of records to create per table')
+    parser.add_argument('--env', choices=['source', 'target', 'local'],
+                       help='Environment to populate (from config file)')
+    parser.add_argument('--config', default='../db_config.json',
+                       help='Path to config file (default: ../db_config.json)')
+    parser.add_argument('--conn',
+                       help='Direct connection string (overrides --env)')
+    
+    args = parser.parse_args()
+    
+    # Validate record count
+    record_count = args.count
+    if record_count <= 0:
+        print(f"❌ Error: Invalid record count '{record_count}'")
         print("   Record count must be a positive integer")
         sys.exit(1)
     
-    # Detect best available ODBC driver
-    available_driver = None
-    try:
-        import pyodbc
-        all_drivers = pyodbc.drivers()
+    # Resolve connection string
+    connection_string = None
+    
+    if args.conn:
+        # Direct connection string provided
+        connection_string = args.conn
+        logger.info("Using direct connection string")
+    elif args.env:
+        # Load from config file
+        connection_string = get_connection_from_config(args.env, args.config)
+    else:
+        # No connection provided - use default
+        logger.info("No connection specified, using default target database")
         
-        preferred_drivers = [
-            "ODBC Driver 17 for SQL Server",
-            "ODBC Driver 13 for SQL Server",
-            "SQL Server Native Client 11.0",
-            "SQL Server"
-        ]
-        
-        for driver in preferred_drivers:
-            if driver in all_drivers:
-                available_driver = driver
-                print(f"Using ODBC driver: {available_driver}")
-                break
-                
-        if not available_driver:
+        # Detect best available ODBC driver
+        available_driver = None
+        try:
+            all_drivers = pyodbc.drivers()
+            
+            preferred_drivers = [
+                "ODBC Driver 18 for SQL Server",
+                "ODBC Driver 17 for SQL Server",
+                "ODBC Driver 13 for SQL Server",
+                "SQL Server Native Client 11.0",
+                "SQL Server"
+            ]
+            
+            for driver in preferred_drivers:
+                if driver in all_drivers:
+                    available_driver = driver
+                    print(f"Using ODBC driver: {available_driver}")
+                    break
+                    
+            if not available_driver:
+                available_driver = "SQL Server"
+                print(f"Using default ODBC driver: {available_driver}")
+        except Exception as e:
             available_driver = "SQL Server"
-            print(f"Using default ODBC driver: {available_driver}")
-    except Exception as e:
-        available_driver = "SQL Server"
-        print(f"Warning: Could not detect drivers, using default: {e}")
-    
-    # Remote SQL Server connection with SQL Authentication
-    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
-    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
-    
-    connection_string = (
-        f"DRIVER={{{driver_to_use}}};"
-        "SERVER=10.134.77.68,1433;"  # Using IP address directly
-        "DATABASE=BookStore-Master;"
-        "UID=testuser;"
-        "PWD=TestDb@26#!;"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
-    )
-    
-    # Allow custom connection string from environment or additional args
-    if len(sys.argv) > 2:
-        connection_string = sys.argv[2]
+            print(f"Warning: Could not detect drivers, using default: {e}")
+        
+        # Remote SQL Server connection with SQL Authentication
+        driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
+        
+        connection_string = (
+            f"DRIVER={{{driver_to_use}}};"
+            "SERVER=10.134.77.68,1433;"
+            "DATABASE=BookStore-Master;"
+            "UID=testuser;"
+            "PWD=TestDb@26#!;"
+            "Encrypt=yes;"
+            "TrustServerCertificate=yes;"
+        )
     
     # Create populator instance
     populator = TestDataPopulator(connection_string, record_count)
@@ -502,7 +757,8 @@ def main():
     print("  Starting: DELETE ALL records and populate with new data")
     print("="*70)
     print(f"Will populate with {record_count} new test records per table")
-    print("(Authors: {}, Books: {})".format(record_count, record_count * 2))
+    print("(Authors: {}, Books: {}, Customers: {}, Stocks: ~{}, Rentals: ~{})".format(
+        record_count, record_count * 2, record_count, record_count * 6, record_count * 3))
     print("="*70 + "\n")
     
     try:
@@ -522,6 +778,9 @@ def main():
         print(f"   • Deleted all existing records")
         print(f"   • Created {record_count} authors")
         print(f"   • Created {record_count * 2} books")
+        print(f"   • Created {record_count} customers")
+        print(f"   • Created ~{record_count * 6} stocks (3 copies per book)")
+        print(f"   • Created ~{record_count * 3} rentals")
         print(f"   • All records have unique timestamp-based identifiers")
         print("="*70)
         

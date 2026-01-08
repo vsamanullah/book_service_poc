@@ -31,8 +31,13 @@ class DatabaseBaseline:
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Extract database connection details
+        self.db_info = self._extract_db_info(connection_string)
+        
         self.baseline_data = {
             'timestamp': self.timestamp,
+            'database_info': self.db_info,
             'tables': {},
             'row_counts': {},
             'checksums': {},
@@ -40,6 +45,39 @@ class DatabaseBaseline:
             'indexes': {},
             'schema_info': {}
         }
+    
+    def _extract_db_info(self, connection_string: str) -> Dict:
+        """Extract database connection information from connection string"""
+        db_info = {
+            'server': 'Unknown',
+            'database': 'Unknown',
+            'driver': 'Unknown',
+            'auth_type': 'Unknown'
+        }
+        
+        try:
+            # Parse connection string
+            parts = connection_string.split(';')
+            for part in parts:
+                if '=' in part:
+                    key, value = part.split('=', 1)
+                    key = key.strip().upper()
+                    value = value.strip()
+                    
+                    if key == 'SERVER':
+                        db_info['server'] = value
+                    elif key == 'DATABASE':
+                        db_info['database'] = value
+                    elif key == 'DRIVER':
+                        db_info['driver'] = value.strip('{}')
+                    elif key == 'UID':
+                        db_info['auth_type'] = f'SQL Authentication (User: {value})'
+                    elif 'TRUSTED_CONNECTION' in key and value.lower() in ['yes', 'true']:
+                        db_info['auth_type'] = 'Windows Authentication'
+        except:
+            pass
+        
+        return db_info
     
     def get_connection(self):
         """Get database connection"""
@@ -61,7 +99,7 @@ class DatabaseBaseline:
             logger.info(f"  Database Version: {version[:100]}...")
             return True
         except Exception as e:
-            logger.error(f"✗ Database connection failed: {e}")
+            logger.error(f" Database connection failed: {e}")
             return False
     
     def _get_user_tables(self, conn) -> List[Tuple[str, str]]:
@@ -293,10 +331,17 @@ class DatabaseBaseline:
         logger.info("BASELINE SUMMARY")
         logger.info("="*70)
         
+        # Database information
+        logger.info("\nDatabase Information:")
+        logger.info(f"  Server:         {self.db_info['server']}")
+        logger.info(f"  Database:       {self.db_info['database']}")
+        logger.info(f"  Driver:         {self.db_info['driver']}")
+        logger.info(f"  Authentication: {self.db_info['auth_type']}")
+        
         total_rows = sum(self.baseline_data['row_counts'].values())
         total_tables = len(self.baseline_data['tables'])
         
-        logger.info(f"Total Tables: {total_tables}")
+        logger.info(f"\nTotal Tables: {total_tables}")
         logger.info(f"Total Rows:   {total_rows}")
         logger.info("")
         
