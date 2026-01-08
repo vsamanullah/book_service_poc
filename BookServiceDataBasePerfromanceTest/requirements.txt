@@ -1,0 +1,9 @@
+# Python Requirements for Database Load Test & Monitoring Tool
+# Install with: pip install -r requirements.txt
+
+# Database connectivity
+pyodbc>=4.0.39
+
+# Note: All other dependencies (argparse, threading, time, csv, random, 
+# statistics, datetime, pathlib, concurrent.futures) are part of Python's 
+# standard library and do not need to be installed separately.

@@ -1,0 +1,648 @@
+# Database Load Testing - Test Cases Documentation
+
+## Overview
+
+This document describes the test cases for the **BookServiceContext Database Performance Testing Tool**. The tool is designed to validate database performance under various load conditions and monitor SQL Server behavior during concurrent operations.
+
+## What Are We Testing?
+
+### Primary Objectives
+
+1. **Database Performance Under Load**
+   - Measure response times for CRUD operations
+   - Identify performance bottlenecks
+   - Evaluate scalability with concurrent connections
+   - Monitor resource utilization (CPU, Memory, I/O)
+
+2. **Concurrent Connection Handling**
+   - Test database behavior with multiple simultaneous connections
+   - Detect deadlocks and lock contention
+   - Validate connection pooling efficiency
+   - Assess transaction throughput
+
+3. **Operation-Specific Performance**
+   - SELECT query performance (various patterns)
+   - INSERT operation throughput
+   - UPDATE statement efficiency
+   - DELETE operation handling
+
+4. **System Health Monitoring**
+   - SQL Server CPU utilization
+   - Memory consumption patterns
+   - Active connection tracking
+   - Transaction rate monitoring
+   - Lock wait and deadlock detection
+
+---
+
+## Test Environment
+
+### Database Schema
+```
+Database: BookServiceContext
+
+Tables:
+1. Authors
+   - Id (INT, PRIMARY KEY, IDENTITY)
+   - Name (NVARCHAR)
+
+2. Books
+   - Id (INT, PRIMARY KEY, IDENTITY)
+   - Title (NVARCHAR)
+   - AuthorId (INT, FOREIGN KEY -> Authors.Id)
+   - Price (DECIMAL)
+   - Year (INT)
+   - Genre (NVARCHAR)
+```
+
+### Test Data
+- **Authors**: 20 pre-seeded records (famous authors)
+- **Books**: Generated dynamically during tests
+- **Test Records**: Marked with "Performance Test Book" prefix
+
+---
+
+## Test Cases
+
+### TC-001: Database Cleanup and Initialization
+
+**Objective**: Verify database can be properly cleaned and initialized for testing
+
+**Pre-conditions**:
+- Database exists and is accessible
+- User has DELETE permissions on Books and Authors tables
+
+**Test Steps**:
+1. Execute `python run_and_monitor_db_test.py --cleanup`
+2. Verify all records are deleted from Books table
+3. Verify all records are deleted from Authors table
+4. Verify Authors identity seed is reset to 0
+
+**Expected Results**:
+- Books table: 0 records
+- Authors table: 0 records
+- No errors during cleanup
+- Success message displayed
+
+**Success Criteria**: ✓ All tables are empty, identity reset successful
+
+---
+
+### TC-002: Database Seeding
+
+**Objective**: Verify database can be seeded with initial test data
+
+**Pre-conditions**:
+- Database is clean (TC-001 completed)
+- User has INSERT permissions on Authors table
+
+**Test Steps**:
+1. Run seeding process (automatic during test execution)
+2. Verify 20 author records are inserted
+3. Verify author names match expected list
+
+**Expected Results**:
+- Authors table: 20 records
+- No duplicate authors
+- All author names are valid
+- Success message displayed
+
+**Success Criteria**: ✓ 20 authors successfully inserted
+
+---
+
+### TC-003: Basic Load Test - Default Configuration
+
+**Objective**: Execute a basic load test with default settings
+
+**Test Configuration**:
+```
+Connections: 20
+Operations per Connection: 100
+Test Type: Mixed
+Duration: 120 seconds
+Total Operations: 2000
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py`
+2. Monitor console output for progress
+3. Wait for completion
+4. Review generated CSV and summary files
+
+**Expected Results**:
+- All 2000 operations complete successfully
+- Success rate > 95%
+- Average response time < 100ms
+- No deadlocks detected
+- Results saved to `database_test_results/` directory
+
+**Success Criteria**: 
+- ✓ >95% success rate
+- ✓ Response time within acceptable range
+- ✓ All files generated correctly
+
+---
+
+### TC-004: High Concurrency Load Test
+
+**Objective**: Test database behavior under high concurrent load
+
+**Test Configuration**:
+```
+Connections: 100
+Operations per Connection: 500
+Test Type: Mixed
+Duration: 300 seconds
+Total Operations: 50,000
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py -c 100 -o 500 -d 300`
+2. Monitor system resources
+3. Track error rates and response times
+4. Analyze results
+
+**Expected Results**:
+- System handles high concurrency without crashes
+- Degradation in response time is gradual and predictable
+- Lock waits may increase but remain manageable
+- CPU and memory stay within acceptable bounds
+
+**Success Criteria**:
+- ✓ >90% success rate maintained
+- ✓ No critical errors or crashes
+- ✓ Response time P95 < 500ms
+
+---
+
+### TC-005: Read-Only Load Test
+
+**Objective**: Measure SELECT query performance
+
+**Test Configuration**:
+```
+Connections: 30
+Operations per Connection: 200
+Test Type: Read
+Duration: 120 seconds
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py -c 30 -o 200 -t Read`
+2. Monitor query execution times
+3. Analyze different SELECT patterns:
+   - SELECT TOP 100
+   - SELECT by ID
+   - SELECT with JOIN
+   - SELECT COUNT(*)
+
+**Expected Results**:
+- Fastest response times among all test types
+- Minimal lock contention
+- High throughput (operations/second)
+- Low CPU utilization
+
+**Success Criteria**:
+- ✓ Average response time < 50ms
+- ✓ >99% success rate
+- ✓ Throughput > 100 ops/sec
+
+---
+
+### TC-006: Write-Intensive Load Test
+
+**Objective**: Test INSERT operation performance and throughput
+
+**Test Configuration**:
+```
+Connections: 20
+Operations per Connection: 300
+Test Type: Write
+Duration: 150 seconds
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py -c 20 -o 300 -t Write`
+2. Monitor INSERT performance
+3. Track transaction log growth
+4. Verify data integrity
+
+**Expected Results**:
+- All INSERTs complete successfully
+- Higher response times than reads (expected)
+- Increased page writes and transaction counts
+- No constraint violations
+
+**Success Criteria**:
+- ✓ >95% success rate
+- ✓ Average response time < 150ms
+- ✓ All inserted records are valid
+
+---
+
+### TC-007: Update Operations Test
+
+**Objective**: Validate UPDATE statement performance
+
+**Test Configuration**:
+```
+Connections: 15
+Operations per Connection: 200
+Test Type: UPDATE
+Duration: 120 seconds
+```
+
+**Test Steps**:
+1. Seed database with test data
+2. Execute: `python run_and_monitor_db_test.py -c 15 -o 200 -t UPDATE`
+3. Monitor lock waits and blocking
+4. Verify updated values
+
+**Expected Results**:
+- UPDATEs complete without excessive locking
+- Moderate response times
+- Lock waits tracked and logged
+- Data consistency maintained
+
+**Success Criteria**:
+- ✓ >95% success rate
+- ✓ Lock wait count < 100
+- ✓ No deadlocks
+
+---
+
+### TC-008: Delete Operations Test
+
+**Objective**: Test DELETE operation performance
+
+**Test Configuration**:
+```
+Connections: 10
+Operations per Connection: 100
+Test Type: DELETE
+Duration: 120 seconds
+```
+
+**Test Steps**:
+1. Pre-populate database with test records
+2. Execute: `python run_and_monitor_db_test.py -c 10 -o 100 -t DELETE`
+3. Verify only test records are deleted
+4. Check foreign key constraint handling
+
+**Expected Results**:
+- Only "Performance Test Book" records are deleted
+- No errors from constraint violations
+- Consistent performance
+- Transaction log properly managed
+
+**Success Criteria**:
+- ✓ >95% success rate
+- ✓ Only test data deleted
+- ✓ No constraint errors
+
+---
+
+### TC-009: Mixed Workload Test (Realistic Scenario)
+
+**Objective**: Simulate real-world mixed operations
+
+**Test Configuration**:
+```
+Connections: 50
+Operations per Connection: 300
+Test Type: Mixed
+Duration: 240 seconds
+
+Operation Distribution:
+- 60% SELECT queries
+- 20% INSERT operations
+- 10% UPDATE operations
+- 10% DELETE operations
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py -c 50 -o 300 -t Mixed -d 240`
+2. Monitor all metrics simultaneously
+3. Analyze operation type breakdown
+4. Compare performance across operation types
+
+**Expected Results**:
+- Balanced workload distribution
+- Different response times per operation type
+- System handles mixed load efficiently
+- No significant blocking or deadlocks
+
+**Success Criteria**:
+- ✓ >95% overall success rate
+- ✓ Operation distribution matches expected ratios (±5%)
+- ✓ P95 response time < 200ms
+
+---
+
+### TC-010: Performance Monitoring Verification
+
+**Objective**: Validate monitoring metrics are captured correctly
+
+**Test Steps**:
+1. Run any load test
+2. Verify metrics_*.csv file is generated
+3. Check all metric columns are populated:
+   - timestamp
+   - cpu_usage
+   - memory_usage_mb
+   - active_connections
+   - batch_requests
+   - page_reads
+   - page_writes
+   - transactions
+   - lock_waits
+   - deadlocks
+
+**Expected Results**:
+- Metrics collected every 5 seconds
+- All values are numeric (except timestamp)
+- No missing data points
+- Summary statistics displayed at end
+
+**Success Criteria**:
+- ✓ All metrics captured
+- ✓ No data gaps
+- ✓ Statistics calculated correctly
+
+---
+
+### TC-011: Stress Test - Maximum Connections
+
+**Objective**: Find breaking point and maximum capacity
+
+**Test Configuration**:
+```
+Connections: 200
+Operations per Connection: 1000
+Test Type: Mixed
+Duration: 600 seconds
+Total Operations: 200,000
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py -c 200 -o 1000 -d 600`
+2. Monitor for failures and errors
+3. Track resource exhaustion
+4. Document degradation patterns
+
+**Expected Results**:
+- System may show degraded performance
+- Error rate may increase
+- Resource utilization near maximum
+- System remains stable (no crashes)
+
+**Success Criteria**:
+- ✓ >80% success rate maintained
+- ✓ System recovers after test
+- ✓ No data corruption
+
+---
+
+### TC-012: Results File Generation
+
+**Objective**: Verify all output files are created correctly
+
+**Test Steps**:
+1. Run complete test cycle
+2. Check `database_test_results/` directory
+3. Verify file creation:
+   - load_test_YYYYMMDD_HHMMSS.csv
+   - summary_YYYYMMDD_HHMMSS.txt
+   - metrics_YYYYMMDD_HHMMSS.csv
+
+**Expected Results**:
+- All three file types created
+- Files contain valid data
+- CSV files importable to Excel
+- Summary file readable and formatted
+
+**Success Criteria**:
+- ✓ All files present
+- ✓ No empty or corrupt files
+- ✓ Timestamps match test execution time
+
+---
+
+### TC-013: Error Handling and Recovery
+
+**Objective**: Verify system handles errors gracefully
+
+**Test Scenarios**:
+1. **Invalid connection string**
+   - Expected: Clear error message, graceful exit
+   
+2. **Database not found**
+   - Expected: Connection error reported, no crash
+   
+3. **Insufficient permissions**
+   - Expected: Permission error logged, partial results saved
+   
+4. **Interrupted test (Ctrl+C)**
+   - Expected: Monitoring stops cleanly, partial results saved
+
+**Success Criteria**:
+- ✓ No unhandled exceptions
+- ✓ Meaningful error messages
+- ✓ Partial results preserved
+
+---
+
+### TC-014: Statistical Accuracy
+
+**Objective**: Validate statistical calculations are correct
+
+**Test Steps**:
+1. Run load test
+2. Export results to Excel
+3. Manually calculate:
+   - Average response time
+   - Median response time
+   - 95th percentile
+   - 99th percentile
+   - Throughput
+4. Compare with tool output
+
+**Expected Results**:
+- Manual calculations match tool output (±0.5%)
+- Percentiles correctly calculated
+- Throughput formula accurate
+
+**Success Criteria**:
+- ✓ <1% variance from manual calculations
+- ✓ All statistics present in summary
+
+---
+
+## Performance Benchmarks
+
+### Expected Response Times (Baseline)
+
+| Operation Type | Average | P95 | P99 | Max Acceptable |
+|---------------|---------|-----|-----|----------------|
+| SELECT TOP 100 | <30ms | <50ms | <80ms | 100ms |
+| SELECT BY ID | <10ms | <20ms | <40ms | 50ms |
+| SELECT WITH JOIN | <40ms | <70ms | <100ms | 150ms |
+| SELECT COUNT | <20ms | <40ms | <60ms | 80ms |
+| INSERT | <50ms | <100ms | <150ms | 200ms |
+| UPDATE | <60ms | <120ms | <180ms | 250ms |
+| DELETE | <40ms | <80ms | <120ms | 150ms |
+
+### Resource Utilization Thresholds
+
+| Metric | Normal | Warning | Critical |
+|--------|--------|---------|----------|
+| CPU Usage | <50% | 50-80% | >80% |
+| Memory | <2GB | 2-4GB | >4GB |
+| Active Connections | <100 | 100-200 | >200 |
+| Lock Waits/sec | <10 | 10-50 | >50 |
+| Deadlocks | 0 | 1-5 | >5 |
+
+---
+
+## Test Execution Checklist
+
+### Before Testing
+- [ ] SQL Server is running
+- [ ] Database exists (BookServiceContext)
+- [ ] ODBC Driver 17 installed
+- [ ] Python 3.6+ installed
+- [ ] pyodbc package installed (`pip install -r requirements.txt`)
+- [ ] Sufficient disk space for results
+- [ ] No other heavy processes running
+
+### During Testing
+- [ ] Monitor console output for errors
+- [ ] Check CPU/Memory on server
+- [ ] Observe response time trends
+- [ ] Note any warnings or failures
+
+### After Testing
+- [ ] Review load_test CSV file
+- [ ] Analyze summary statistics
+- [ ] Check monitoring metrics
+- [ ] Compare against benchmarks
+- [ ] Document any anomalies
+- [ ] Clean up test data (optional)
+
+---
+
+## Test Data Summary
+
+### What Gets Created
+- **Authors**: 20 records (persistent across tests)
+- **Books**: Variable count based on test configuration
+  - Each INSERT operation adds 1 book
+  - Each DELETE operation removes 1 test book
+
+### What Gets Cleaned Up
+- Running with `--cleanup` removes ALL data
+- DELETE operations only remove "Performance Test Book" records
+- Regular cleanup recommended after major tests
+
+---
+
+## Success Criteria (Overall)
+
+| Criteria | Target | Minimum Acceptable |
+|----------|--------|-------------------|
+| Success Rate | >99% | >95% |
+| Average Response Time | <100ms | <200ms |
+| P95 Response Time | <200ms | <500ms |
+| Throughput | >50 ops/sec | >20 ops/sec |
+| CPU Usage (avg) | <60% | <80% |
+| Memory Usage (avg) | <3GB | <5GB |
+| Deadlock Count | 0 | <5 |
+| Test Completion | 100% | 100% |
+
+---
+
+## Common Issues and Solutions
+
+### Issue 1: High Response Times
+**Symptoms**: Average >200ms, P95 >500ms
+**Possible Causes**: 
+- Insufficient indexing
+- Lock contention
+- CPU/Memory constraints
+**Solution**: Add indexes, reduce concurrency, optimize queries
+
+### Issue 2: Connection Failures
+**Symptoms**: Thread connection errors
+**Possible Causes**:
+- Max connections exceeded
+- Connection string invalid
+- Server not responding
+**Solution**: Check connection limits, verify credentials
+
+### Issue 3: Lock Waits/Deadlocks
+**Symptoms**: High lock_waits counter, deadlock errors
+**Possible Causes**:
+- Concurrent UPDATEs on same records
+- Long-running transactions
+**Solution**: Reduce UPDATE concurrency, implement retry logic
+
+### Issue 4: Memory Growth
+**Symptoms**: Memory usage continuously increases
+**Possible Causes**:
+- Connection leaks
+- Large result sets
+- Transaction log growth
+**Solution**: Verify connections close, limit result sizes
+
+---
+
+## Reporting Results
+
+### Key Metrics to Report
+1. **Test Configuration** (connections, operations, duration)
+2. **Success Rate** (%)
+3. **Response Times** (avg, median, P95, P99)
+4. **Throughput** (operations/second)
+5. **Resource Utilization** (CPU, Memory peaks)
+6. **Error Summary** (if any)
+7. **Recommendations** (based on findings)
+
+### Report Template
+```
+Test Date: [DATE]
+Configuration: [X] connections, [Y] operations, [Z] test type
+Duration: [N] seconds
+Total Operations: [TOTAL]
+
+Results:
+- Success Rate: [%]
+- Avg Response Time: [X]ms
+- P95 Response Time: [Y]ms
+- Throughput: [Z] ops/sec
+
+Resource Usage:
+- CPU: [X]% avg, [Y]% max
+- Memory: [X]GB avg, [Y]GB max
+- Connections: [X] avg, [Y] max
+
+Observations:
+[Key findings]
+
+Recommendations:
+[Actions to take]
+```
+
+---
+
+## Conclusion
+
+This test suite provides comprehensive coverage of database performance testing scenarios. By executing these test cases, you can:
+
+- Validate database performance under various loads
+- Identify bottlenecks and optimization opportunities
+- Establish performance baselines
+- Monitor system health during load
+- Generate data-driven performance reports
+
+Regular execution of these tests ensures database reliability and helps maintain performance SLAs.

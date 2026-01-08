@@ -1,0 +1,4 @@
+book_id,title,year,price,genre,author_id
+1,"The Great Adventure",2020,29.99,"Fiction",1
+2,"Mystery Night",2019,24.99,"Mystery",2
+3,"Tech Guide",2021,39.99,"Technology",3
