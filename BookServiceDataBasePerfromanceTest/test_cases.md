@@ -39,24 +39,39 @@ This document describes the test cases for the **BookServiceContext Database Per
 
 ### Database Schema
 ```
-Database: BookServiceContext
+Database: BookStore-Master
 
 Tables:
 1. Authors
    - Id (INT, PRIMARY KEY, IDENTITY)
+   - AuthorId (UNIQUEIDENTIFIER)
+   - FirstName (NVARCHAR)
+   - LastName (NVARCHAR)
+   - BirthDate (DATETIME2, NULLABLE)
+   - Nationality (NVARCHAR, NULLABLE)
+   - Bio (NVARCHAR, NULLABLE)
+   - Email (NVARCHAR, NULLABLE)
+   - Affiliation (NVARCHAR, NULLABLE)
+
+2. Genres
+   - Id (INT, PRIMARY KEY, IDENTITY)
    - Name (NVARCHAR)
 
-2. Books
+3. Books
    - Id (INT, PRIMARY KEY, IDENTITY)
    - Title (NVARCHAR)
    - AuthorId (INT, FOREIGN KEY -> Authors.Id)
-   - Price (DECIMAL)
    - Year (INT)
-   - Genre (NVARCHAR)
+   - Price (DECIMAL)
+   - Description (NVARCHAR, NULLABLE)
+   - GenreId (INT, FOREIGN KEY -> Genres.Id)
+   - IssueDate (DATETIME2, NULLABLE)
+   - Rating (INT, NULLABLE)
 ```
 
 ### Test Data
-- **Authors**: 20 pre-seeded records (famous authors)
+- **Genres**: 1 default genre ("General") - auto-seeded
+- **Authors**: 20 pre-seeded records (famous authors with FirstName/LastName)
 - **Books**: Generated dynamically during tests
 - **Test Records**: Marked with "Performance Test Book" prefix
 
@@ -70,44 +85,48 @@ Tables:
 
 **Pre-conditions**:
 - Database exists and is accessible
-- User has DELETE permissions on Books and Authors tables
+- User has DELETE permissions on Books, Authors, and Genres tables
 
 **Test Steps**:
 1. Execute `python run_and_monitor_db_test.py --cleanup`
 2. Verify all records are deleted from Books table
 3. Verify all records are deleted from Authors table
-4. Verify Authors identity seed is reset to 0
+4. Verify all records are deleted from Genres table
+5. Verify Authors identity seed is reset to 0
 
 **Expected Results**:
 - Books table: 0 records
-- Authors table: 0 records
+- Authors table: 0 records  
+- Genres table: 0 records
 - No errors during cleanup
 - Success message displayed
 
-**Success Criteria**: ✓ All tables are empty, identity reset successful
+**Success Criteria**:   All tables are empty, identity reset successful
 
 ---
 
 ### TC-002: Database Seeding
 
-**Objective**: Verify database can be seeded with initial test data
+**Objective**: Verify database can be seeded with initial test data (Genres and Authors)
 
 **Pre-conditions**:
 - Database is clean (TC-001 completed)
-- User has INSERT permissions on Authors table
+- User has INSERT permissions on Genres and Authors tables
 
 **Test Steps**:
 1. Run seeding process (automatic during test execution)
-2. Verify 20 author records are inserted
-3. Verify author names match expected list
+2. Verify 1 default genre is inserted ("General")
+3. Verify 20 author records are inserted
+4. Verify author names match expected list (FirstName + LastName format)
 
 **Expected Results**:
-- Authors table: 20 records
+- Genres table: 1 record
+- Authors table: 20 records with unique AuthorId GUIDs
 - No duplicate authors
-- All author names are valid
+- All author names are valid (FirstName and LastName populated)
 - Success message displayed
 
-**Success Criteria**: ✓ 20 authors successfully inserted
+**Success Criteria**:   1 genre and 20 authors successfully inserted
 
 ---
 
@@ -138,9 +157,9 @@ Total Operations: 2000
 - Results saved to `database_test_results/` directory
 
 **Success Criteria**: 
-- ✓ >95% success rate
-- ✓ Response time within acceptable range
-- ✓ All files generated correctly
+-   >95% success rate
+-   Response time within acceptable range
+-   All files generated correctly
 
 ---
 
@@ -170,9 +189,9 @@ Total Operations: 50,000
 - CPU and memory stay within acceptable bounds
 
 **Success Criteria**:
-- ✓ >90% success rate maintained
-- ✓ No critical errors or crashes
-- ✓ Response time P95 < 500ms
+-   >90% success rate maintained
+-   No critical errors or crashes
+-   Response time P95 < 500ms
 
 ---
 
@@ -204,9 +223,9 @@ Duration: 120 seconds
 - Low CPU utilization
 
 **Success Criteria**:
-- ✓ Average response time < 50ms
-- ✓ >99% success rate
-- ✓ Throughput > 100 ops/sec
+-   Average response time < 50ms
+-   >99% success rate
+-   Throughput > 100 ops/sec
 
 ---
 
@@ -235,9 +254,9 @@ Duration: 150 seconds
 - No constraint violations
 
 **Success Criteria**:
-- ✓ >95% success rate
-- ✓ Average response time < 150ms
-- ✓ All inserted records are valid
+-   >95% success rate
+-   Average response time < 150ms
+-   All inserted records are valid
 
 ---
 
@@ -266,9 +285,9 @@ Duration: 120 seconds
 - Data consistency maintained
 
 **Success Criteria**:
-- ✓ >95% success rate
-- ✓ Lock wait count < 100
-- ✓ No deadlocks
+-   >95% success rate
+-   Lock wait count < 100
+-   No deadlocks
 
 ---
 
@@ -297,9 +316,9 @@ Duration: 120 seconds
 - Transaction log properly managed
 
 **Success Criteria**:
-- ✓ >95% success rate
-- ✓ Only test data deleted
-- ✓ No constraint errors
+-   >95% success rate
+-   Only test data deleted
+-   No constraint errors
 
 ---
 
@@ -334,9 +353,9 @@ Operation Distribution:
 - No significant blocking or deadlocks
 
 **Success Criteria**:
-- ✓ >95% overall success rate
-- ✓ Operation distribution matches expected ratios (±5%)
-- ✓ P95 response time < 200ms
+-   >95% overall success rate
+-   Operation distribution matches expected ratios (±5%)
+-   P95 response time < 200ms
 
 ---
 
@@ -366,9 +385,9 @@ Operation Distribution:
 - Summary statistics displayed at end
 
 **Success Criteria**:
-- ✓ All metrics captured
-- ✓ No data gaps
-- ✓ Statistics calculated correctly
+-   All metrics captured
+-   No data gaps
+-   Statistics calculated correctly
 
 ---
 
@@ -398,9 +417,9 @@ Total Operations: 200,000
 - System remains stable (no crashes)
 
 **Success Criteria**:
-- ✓ >80% success rate maintained
-- ✓ System recovers after test
-- ✓ No data corruption
+-   >80% success rate maintained
+-   System recovers after test
+-   No data corruption
 
 ---
 
@@ -423,9 +442,9 @@ Total Operations: 200,000
 - Summary file readable and formatted
 
 **Success Criteria**:
-- ✓ All files present
-- ✓ No empty or corrupt files
-- ✓ Timestamps match test execution time
+-   All files present
+-   No empty or corrupt files
+-   Timestamps match test execution time
 
 ---
 
@@ -447,9 +466,9 @@ Total Operations: 200,000
    - Expected: Monitoring stops cleanly, partial results saved
 
 **Success Criteria**:
-- ✓ No unhandled exceptions
-- ✓ Meaningful error messages
-- ✓ Partial results preserved
+-   No unhandled exceptions
+-   Meaningful error messages
+-   Partial results preserved
 
 ---
 
@@ -474,8 +493,8 @@ Total Operations: 200,000
 - Throughput formula accurate
 
 **Success Criteria**:
-- ✓ <1% variance from manual calculations
-- ✓ All statistics present in summary
+-   <1% variance from manual calculations
+-   All statistics present in summary
 
 ---
 
@@ -508,13 +527,14 @@ Total Operations: 200,000
 ## Test Execution Checklist
 
 ### Before Testing
-- [ ] SQL Server is running
-- [ ] Database exists (BookServiceContext)
-- [ ] ODBC Driver 17 installed
+- [ ] SQL Server is running (remote server: 10.134.77.68:1433)
+- [ ] Database exists (BookStore-Master)
+- [ ] ODBC Driver 17 or 18 for SQL Server installed
 - [ ] Python 3.6+ installed
 - [ ] pyodbc package installed (`pip install -r requirements.txt`)
 - [ ] Sufficient disk space for results
-- [ ] No other heavy processes running
+- [ ] Network connectivity to remote SQL Server
+- [ ] SQL authentication credentials valid (testuser)
 
 ### During Testing
 - [ ] Monitor console output for errors
@@ -535,13 +555,15 @@ Total Operations: 200,000
 ## Test Data Summary
 
 ### What Gets Created
-- **Authors**: 20 records (persistent across tests)
+- **Genres**: 1 default genre ("General") - created on first run
+- **Authors**: 20 records with unique GUIDs (persistent across tests)
+  - Includes FirstName, LastName, and AuthorId (GUID)
 - **Books**: Variable count based on test configuration
-  - Each INSERT operation adds 1 book
+  - Each INSERT operation adds 1 book with Title, Year, Price, Description, GenreId, IssueDate, Rating
   - Each DELETE operation removes 1 test book
 
 ### What Gets Cleaned Up
-- Running with `--cleanup` removes ALL data
+- Running with `--cleanup` removes ALL data from Books, Authors, and Genres tables
 - DELETE operations only remove "Performance Test Book" records
 - Regular cleanup recommended after major tests
 

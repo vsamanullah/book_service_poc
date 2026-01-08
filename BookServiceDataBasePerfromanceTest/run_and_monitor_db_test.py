@@ -12,11 +12,35 @@ import pyodbc
 import csv
 import random
 import statistics
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-DEFAULT_CONNECTION_STRING = "Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=BookServiceContext;Trusted_Connection=yes;"
+# Remote SQL Server connection with SQL Authentication
+# Auto-detect best available driver
+try:
+    import pyodbc as _pyodbc_test
+    available_drivers = _pyodbc_test.drivers()
+    if "ODBC Driver 18 for SQL Server" in available_drivers:
+        DEFAULT_DRIVER = "ODBC Driver 18 for SQL Server"
+    elif "ODBC Driver 17 for SQL Server" in available_drivers:
+        DEFAULT_DRIVER = "ODBC Driver 17 for SQL Server"
+    else:
+        DEFAULT_DRIVER = "SQL Server"
+except:
+    DEFAULT_DRIVER = "ODBC Driver 17 for SQL Server"
+
+DEFAULT_CONNECTION_STRING = (
+    f"DRIVER={{{DEFAULT_DRIVER}}};"
+    "SERVER=10.134.77.68,1433;"  # Remote SQL Server
+    "DATABASE=BookStore-Master;"
+    "UID=testuser;"
+    "PWD=TestDb@26#!;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
+
 RESULTS_DIR = Path("database_test_results")
 
 
@@ -227,28 +251,28 @@ def execute_select_operation(cursor):
     operation_type = random.choice(['top100', 'by_id', 'with_join', 'count'])
     
     if operation_type == 'top100':
-        cursor.execute("SELECT TOP 100 * FROM Books ORDER BY Id")
+        cursor.execute("SELECT TOP 100 * FROM [dbo].[Books] ORDER BY Id")
         cursor.fetchall()
         return "SELECT_TOP100"
     
     elif operation_type == 'by_id':
         book_id = random.randint(1, 1000)
-        cursor.execute("SELECT * FROM Books WHERE Id = ?", book_id)
+        cursor.execute("SELECT * FROM [dbo].[Books] WHERE Id = ?", book_id)
         cursor.fetchall()
         return "SELECT_BY_ID"
     
     elif operation_type == 'with_join':
         cursor.execute("""
-            SELECT TOP 50 b.Id, b.Title, a.Name 
-            FROM Books b 
-            INNER JOIN Authors a ON b.AuthorId = a.Id
+            SELECT TOP 50 b.Id, b.Title, a.FirstName, a.LastName 
+            FROM [dbo].[Books] b 
+            INNER JOIN [dbo].[Authors] a ON b.AuthorId = a.Id
             ORDER BY b.Id
         """)
         cursor.fetchall()
         return "SELECT_WITH_JOIN"
     
     else:  # count
-        cursor.execute("SELECT COUNT(*) FROM Books")
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[Books]")
         cursor.fetchall()
         return "SELECT_COUNT"
 
@@ -256,15 +280,18 @@ def execute_select_operation(cursor):
 def execute_insert_operation(cursor):
     """Execute INSERT operation"""
     title = f"Performance Test Book {random.randint(1, 999999)}"
-    author_id = random.randint(1, 20)
-    price = round(random.uniform(10.0, 100.0), 2)
+    author_id = random.randint(1, 20)  # Assuming 20 authors seeded
     year = random.randint(1900, 2025)
-    genre = random.choice(["Fiction", "Non-Fiction", "Science", "History", "Biography"])
+    price = round(random.uniform(10.0, 100.0), 2)
+    description = f"Performance test book description {random.randint(1, 999999)}"
+    genre_id = 1  # Default genre ID
+    issue_date = datetime.now() - timedelta(days=random.randint(0, 3650))
+    rating = random.randint(1, 5)
     
     cursor.execute("""
-        INSERT INTO Books (Title, AuthorId, Price, Year, Genre) 
-        VALUES (?, ?, ?, ?, ?)
-    """, title, author_id, price, year, genre)
+        INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, title, author_id, year, price, description, genre_id, issue_date, rating)
     cursor.commit()
     return "INSERT"
 
@@ -275,7 +302,7 @@ def execute_update_operation(cursor):
     new_price = round(random.uniform(10.0, 100.0), 2)
     
     cursor.execute("""
-        UPDATE Books 
+        UPDATE [dbo].[Books] 
         SET Price = ? 
         WHERE Id = ?
     """, new_price, book_id)
@@ -287,7 +314,7 @@ def execute_delete_operation(cursor):
     """Execute DELETE operation"""
     # Only delete test records
     cursor.execute("""
-        DELETE TOP (1) FROM Books 
+        DELETE TOP (1) FROM [dbo].[Books] 
         WHERE Title LIKE 'Performance Test Book%'
     """)
     cursor.commit()
@@ -508,10 +535,10 @@ def cleanup_database(connection_string):
         cursor = conn.cursor()
         
         # Get counts before deletion
-        cursor.execute("SELECT COUNT(*) FROM Books")
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[Books]")
         books_count = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COUNT(*) FROM Authors")
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[Authors]")
         authors_count = cursor.fetchone()[0]
         
         print(f"Current records:")
@@ -528,17 +555,17 @@ def cleanup_database(connection_string):
         print("Deleting records...")
         
         # Delete all books first (due to foreign key constraint)
-        cursor.execute("DELETE FROM Books")
+        cursor.execute("DELETE FROM [dbo].[Books]")
         deleted_books = cursor.rowcount
         print(f"  Deleted {deleted_books} books")
         
         # Delete all authors
-        cursor.execute("DELETE FROM Authors")
+        cursor.execute("DELETE FROM [dbo].[Authors]")
         deleted_authors = cursor.rowcount
         print(f"  Deleted {deleted_authors} authors")
         
         # Reset identity seed for Authors table
-        cursor.execute("DBCC CHECKIDENT ('Authors', RESEED, 0)")
+        cursor.execute("DBCC CHECKIDENT ('[dbo].[Authors]', RESEED, 0)")
         print(f"  Reset Authors identity to 0")
         
         # Commit the changes
@@ -566,11 +593,11 @@ def seed_database(connection_string):
     print()
     
     authors = [
-        "William Shakespeare", "Jane Austen", "Charles Dickens", "Mark Twain",
-        "Ernest Hemingway", "F. Scott Fitzgerald", "George Orwell", "J.K. Rowling",
-        "Stephen King", "Agatha Christie", "Leo Tolstoy", "Fyodor Dostoevsky",
-        "Virginia Woolf", "James Joyce", "Franz Kafka", "Gabriel Garcia Marquez",
-        "Haruki Murakami", "Margaret Atwood", "Toni Morrison", "Chinua Achebe"
+        ("William", "Shakespeare"), ("Jane", "Austen"), ("Charles", "Dickens"), ("Mark", "Twain"),
+        ("Ernest", "Hemingway"), ("F. Scott", "Fitzgerald"), ("George", "Orwell"), ("J.K.", "Rowling"),
+        ("Stephen", "King"), ("Agatha", "Christie"), ("Leo", "Tolstoy"), ("Fyodor", "Dostoevsky"),
+        ("Virginia", "Woolf"), ("James", "Joyce"), ("Franz", "Kafka"), ("Gabriel Garcia", "Marquez"),
+        ("Haruki", "Murakami"), ("Margaret", "Atwood"), ("Toni", "Morrison"), ("Chinua", "Achebe")
     ]
     
     try:
@@ -578,7 +605,7 @@ def seed_database(connection_string):
         cursor = conn.cursor()
         
         # Check if authors already exist
-        cursor.execute("SELECT COUNT(*) FROM Authors")
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[Authors]")
         existing_count = cursor.fetchone()[0]
         
         if existing_count >= 20:
@@ -589,12 +616,16 @@ def seed_database(connection_string):
         
         # Insert authors
         inserted = 0
-        for author_name in authors:
+        for first_name, last_name in authors:
             try:
-                cursor.execute("INSERT INTO Authors (Name) VALUES (?)", author_name)
+                author_guid = str(uuid.uuid4())
+                cursor.execute("""
+                    INSERT INTO [dbo].[Authors] (AuthorId, FirstName, LastName) 
+                    VALUES (?, ?, ?)
+                """, author_guid, first_name, last_name)
                 inserted += 1
             except Exception as e:
-                print(f"  Warning: Could not insert '{author_name}': {str(e)}")
+                print(f"  Warning: Could not insert '{first_name} {last_name}': {str(e)}")
         
         cursor.commit()
         
@@ -606,6 +637,39 @@ def seed_database(connection_string):
         
     except Exception as e:
         print(f"ERROR: Failed to seed database: {str(e)}")
+        print()
+
+
+def seed_genres(connection_string):
+    """Seed database with default Genre for testing"""
+    print("Checking Genres table...")
+    
+    try:
+        conn = pyodbc.connect(connection_string)
+        cursor = conn.cursor()
+        
+        # Check if default genre exists
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[Genres]")
+        existing_count = cursor.fetchone()[0]
+        
+        if existing_count > 0:
+            print(f"  Genres table already has {existing_count} record(s). Skipping.")
+            cursor.close()
+            conn.close()
+            return
+        
+        # Insert default genre
+        cursor.execute("INSERT INTO [dbo].[Genres] (Name) VALUES (?)", "General")
+        cursor.commit()
+        
+        print("  ✓ Seeded default genre successfully!")
+        print()
+        
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        print(f"  Warning: Could not seed genres: {str(e)}")
         print()
 
 
@@ -623,8 +687,8 @@ def main():
                        help='Monitoring duration in seconds (default: 120)')
     parser.add_argument('-s', '--connection-string', type=str, default=DEFAULT_CONNECTION_STRING,
                        help='Database connection string')
-    parser.add_argument('--database', type=str, default='BookServiceContext',
-                       help='Database name (default: BookServiceContext)')
+    parser.add_argument('--database', type=str, default='BookStore-Master',
+                       help='Database name (default: BookStore-Master)')
     parser.add_argument('--cleanup', action='store_true',
                        help='Clean up all records from Books and Authors tables (use before/after testing)')
     
@@ -644,7 +708,10 @@ def main():
     print("Step 1: Cleaning up database...")
     cleanup_database(args.connection_string)
     
-    print("Step 2: Seeding database with Authors...")
+    print("Step 2: Seeding Genres...")
+    seed_genres(args.connection_string)
+    
+    print("Step 3: Seeding Authors...")
     seed_database(args.connection_string)
     
     print("Step 3: Starting performance test...")
@@ -681,7 +748,6 @@ def main():
     print("Next steps:")
     print("  1. Review load test results (load_test_*.csv)")
     print("  2. Review monitoring metrics (metrics_*.csv)")
-    print("  3. Run performance analysis queries (Database-Performance-Analysis.sql)")
     print()
 
 
