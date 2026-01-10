@@ -2,7 +2,7 @@
 """
 Performance Test with System Profiling
 This script monitors CPU, Memory, Disk, and Network while running JMeter tests
-Usage: python run_with_profiling.py <test_file.jmx>
+Usage: python run_with_profiling.py <test_file.jmx> [--env {source,target,local}] [--config <path>]
 """
 
 import sys
@@ -11,6 +11,8 @@ import subprocess
 import time
 import csv
 import signal
+import json
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -44,6 +46,22 @@ def print_header(text):
     print_color(text, Colors.CYAN)
     print_color("=" * 60, Colors.CYAN)
     print()
+
+def load_api_config(config_path="../api_config.json", env_name="target"):
+    """Load API configuration from JSON file"""
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        return config['environments'][env_name]
+    except FileNotFoundError:
+        print_color(f"Error: Configuration file not found: {config_path}", Colors.RED)
+        return None
+    except json.JSONDecodeError as e:
+        print_color(f"Error: Invalid JSON in configuration file: {e}", Colors.RED)
+        return None
+    except KeyError as e:
+        print_color(f"Error: Environment '{env_name}' not found in configuration", Colors.RED)
+        return None
 
 def check_application_running(base_url="http://localhost:50524"):
     """Check if the application is running"""
@@ -450,19 +468,52 @@ def generate_performance_graphs(clean_file, output_dir='results/profiling/graphs
         return False
 
 def main():
-    # Check arguments
-    if len(sys.argv) < 2:
-        print_color("ERROR: No test file specified", Colors.RED)
-        print()
-        print("Usage: python run_with_profiling.py <test_file.jmx>")
-        print()
-        print("Examples:")
-        print("  python run_with_profiling.py 01_Authors_GET_All.jmx")
-        print("  python run_with_profiling.py 06_Books_GET_All.jmx")
-        print()
-        sys.exit(1)
+    # Setup argument parser
+    parser = argparse.ArgumentParser(
+        description='Performance Test with System Profiling',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  # Test with target environment (default)
+  python run_with_profiling.py 01_Authors_GET_All.jmx
+  
+  # Test with source environment
+  python run_with_profiling.py 01_Authors_GET_All.jmx --env source
+  
+  # Test with local environment
+  python run_with_profiling.py 06_Books_GET_All.jmx --env local
+  
+  # Use custom config file
+  python run_with_profiling.py 01_Authors_GET_All.jmx --env target --config ../custom_api_config.json
+        """
+    )
     
-    test_file = sys.argv[1]
+    parser.add_argument(
+        'test_file',
+        help='JMeter test file (.jmx)'
+    )
+    
+    parser.add_argument(
+        '--env',
+        choices=['source', 'target', 'local'],
+        default='target',
+        help='Environment to test (default: target)'
+    )
+    
+    parser.add_argument(
+        '--config',
+        default='../api_config.json',
+        help='Path to API config file (default: ../api_config.json)'
+    )
+    
+    parser.add_argument(
+        '--profile',
+        action='store_true',
+        help='Enable system profiling (CPU, Memory, Disk, Network monitoring)'
+    )
+    
+    args = parser.parse_args()
+    
+    test_file = args.test_file
     test_name = Path(test_file).stem
     
     # Check if file exists
@@ -475,21 +526,37 @@ def main():
     # Generate timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    # Load API configuration
+    env_config = load_api_config(args.config, args.env)
+    
+    if not env_config:
+        print_color("\nFailed to load configuration. Exiting.", Colors.RED)
+        sys.exit(1)
+    
+    base_url = env_config['base_url']
+    
     print_header("Performance Test with System Profiling")
     print(f"Test File: {test_file}")
     print(f"Test Name: {test_name}")
+    print(f"Environment: {env_config.get('description', args.env)}")
+    print(f"Base URL: {base_url}")
+    print(f"Profiling: {'Enabled' if args.profile else 'Disabled'}")
     print(f"Timestamp: {timestamp}")
     print()
     
-    # Run database reset and seed script
-    print_color("[0/7] Resetting and seeding database...", Colors.YELLOW)
-    
-    try:
-        reset_database(base_url="http://localhost:50524")
-        print_color("[OK] Database reset and seeded successfully", Colors.GREEN)
-    except Exception as e:
-        print_color(f"[WARNING] Database reset failed: {e}", Colors.YELLOW)
-    print()
+    # Run database reset and seed script (only for local environment)
+    if args.env == 'local':
+        print_color("[0/7] Resetting and seeding database...", Colors.YELLOW)
+        
+        try:
+            reset_database(base_url=base_url)
+            print_color("[OK] Database reset and seeded successfully", Colors.GREEN)
+        except Exception as e:
+            print_color(f"[WARNING] Database reset failed: {e}", Colors.YELLOW)
+        print()
+    else:
+        print_color("[0/7] Skipping database reset (only available for local environment)", Colors.YELLOW)
+        print()
     
     # Create directories
     os.makedirs("results", exist_ok=True)
@@ -518,47 +585,55 @@ def main():
     print()
     
     # Start Performance Monitoring
-    print_color("[2/7] Starting performance monitoring...", Colors.YELLOW)
-    perf_file = f"results/profiling/performance_{timestamp}.csv"
+    perf_process = None
+    perf_file = None
+    clean_file = None
     
-    if os.name == 'nt':  # Windows
-        # Start typeperf for Windows
-        perf_cmd = [
-            'typeperf',
-            r'\Processor(_Total)\% Processor Time',
-            r'\Memory\Available MBytes',
-            r'\Memory\% Committed Bytes In Use',
-            r'\PhysicalDisk(_Total)\Disk Reads/sec',
-            r'\PhysicalDisk(_Total)\Disk Writes/sec',
-            r'\Network Interface(*)\Bytes Total/sec',
-            r'\Process(dotnet)\% Processor Time',
-            r'\Process(dotnet)\Working Set - Private',
-            '-si', '1',
-            '-o', perf_file
-        ]
+    if args.profile:
+        print_color("[2/7] Starting performance monitoring...", Colors.YELLOW)
+        perf_file = f"results/profiling/performance_{timestamp}.csv"
         
-        perf_process = subprocess.Popen(
-            perf_cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-        )
-        
-        print_color(f"[OK] Performance monitoring started (PID: {perf_process.pid})", Colors.GREEN)
-    else:
-        # For Linux/Mac - Start custom monitoring script
-        perf_process = start_linux_monitoring(perf_file)
-        if perf_process:
+        if os.name == 'nt':  # Windows
+            # Start typeperf for Windows
+            perf_cmd = [
+                'typeperf',
+                r'\Processor(_Total)\% Processor Time',
+                r'\Memory\Available MBytes',
+                r'\Memory\% Committed Bytes In Use',
+                r'\PhysicalDisk(_Total)\Disk Reads/sec',
+                r'\PhysicalDisk(_Total)\Disk Writes/sec',
+                r'\Network Interface(*)\Bytes Total/sec',
+                r'\Process(dotnet)\% Processor Time',
+                r'\Process(dotnet)\Working Set - Private',
+                '-si', '1',
+                '-o', perf_file
+            ]
+            
+            perf_process = subprocess.Popen(
+                perf_cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+            
             print_color(f"[OK] Performance monitoring started (PID: {perf_process.pid})", Colors.GREEN)
         else:
-            print_color("[WARNING] Performance monitoring could not be started", Colors.YELLOW)
-    
-    print(f"    Output file: {perf_file}")
-    print("    Collecting: CPU, Memory, Disk, Network metrics")
-    print()
-    
-    # Wait for monitoring to stabilize
-    time.sleep(2)
+            # For Linux/Mac - Start custom monitoring script
+            perf_process = start_linux_monitoring(perf_file)
+            if perf_process:
+                print_color(f"[OK] Performance monitoring started (PID: {perf_process.pid})", Colors.GREEN)
+            else:
+                print_color("[WARNING] Performance monitoring could not be started", Colors.YELLOW)
+        
+        print(f"    Output file: {perf_file}")
+        print("    Collecting: CPU, Memory, Disk, Network metrics")
+        print()
+        
+        # Wait for monitoring to stabilize
+        time.sleep(2)
+    else:
+        print_color("[2/7] Profiling disabled (use --profile to enable)", Colors.YELLOW)
+        print()
     
     # Run JMeter Test
     print_color("[3/7] Running JMeter performance test...", Colors.YELLOW)
@@ -577,11 +652,12 @@ def main():
     print()
     
     # Wait to capture post-test metrics
-    time.sleep(2)
+    if args.profile:
+        time.sleep(2)
     
     # Stop Performance Monitoring
-    print_color("[4/7] Stopping performance monitoring...", Colors.YELLOW)
-    if perf_process:
+    if args.profile and perf_process:
+        print_color("[4/7] Stopping performance monitoring...", Colors.YELLOW)
         if os.name == 'nt':
             # Windows - terminate typeperf
             subprocess.run(['taskkill', '/F', '/PID', str(perf_process.pid)], 
@@ -594,37 +670,51 @@ def main():
             except subprocess.TimeoutExpired:
                 perf_process.kill()
         time.sleep(1)
-    print_color("[OK] Performance monitoring stopped", Colors.GREEN)
-    print()
+        print_color("[OK] Performance monitoring stopped", Colors.GREEN)
+        print()
+    elif args.profile:
+        print_color("[4/7] No performance monitoring to stop", Colors.YELLOW)
+        print()
+    else:
+        print_color("[4/7] Profiling was disabled - skipping", Colors.YELLOW)
+        print()
     
     # Clean and process CSV
-    print_color("[5/7] Processing performance data...", Colors.YELLOW)
-    clean_file = f"results/profiling/performance_{timestamp}_clean.csv"
-    
-    try:
-        if os.path.exists(perf_file):
-            clean_csv(perf_file, clean_file)
-            print_color("[OK] Performance data cleaned and formatted", Colors.GREEN)
-        else:
-            print_color("[WARNING] Performance file not found", Colors.YELLOW)
-    except Exception as e:
-        print_color(f"[ERROR] Failed to clean CSV: {e}", Colors.RED)
-    print()
+    if args.profile:
+        print_color("[5/7] Processing performance data...", Colors.YELLOW)
+        clean_file = f"results/profiling/performance_{timestamp}_clean.csv"
+        
+        try:
+            if os.path.exists(perf_file):
+                clean_csv(perf_file, clean_file)
+                print_color("[OK] Performance data cleaned and formatted", Colors.GREEN)
+            else:
+                print_color("[WARNING] Performance file not found", Colors.YELLOW)
+        except Exception as e:
+            print_color(f"[ERROR] Failed to clean CSV: {e}", Colors.RED)
+        print()
+    else:
+        print_color("[5/7] Profiling was disabled - skipping data processing", Colors.YELLOW)
+        print()
     
     # Generate Performance Summary and Graphs
-    print_color("[6/7] Generating performance summary and graphs...", Colors.YELLOW)
-    try:
-        generate_summary(clean_file)
-        
-        # Generate graphs directly using embedded function
-        print("  Generating graphs...")
-        if generate_performance_graphs(clean_file, "results/profiling/graphs"):
-            print_color("[OK] Summary and graphs generated successfully", Colors.GREEN)
-        else:
-            print_color("[WARNING] Graph generation had issues", Colors.YELLOW)
-    except Exception as e:
-        print_color(f"[ERROR] Summary generation failed: {e}", Colors.RED)
-    print()
+    if args.profile:
+        print_color("[6/7] Generating performance summary and graphs...", Colors.YELLOW)
+        try:
+            generate_summary(clean_file)
+            
+            # Generate graphs directly using embedded function
+            print("  Generating graphs...")
+            if generate_performance_graphs(clean_file, "results/profiling/graphs"):
+                print_color("[OK] Summary and graphs generated successfully", Colors.GREEN)
+            else:
+                print_color("[WARNING] Graph generation had issues", Colors.YELLOW)
+        except Exception as e:
+            print_color(f"[ERROR] Summary generation failed: {e}", Colors.RED)
+        print()
+    else:
+        print_color("[6/7] Profiling was disabled - skipping summary generation", Colors.YELLOW)
+        print()
     
     # Final report consolidation
     print_color("[7/7] Consolidating results...", Colors.YELLOW)
@@ -632,10 +722,12 @@ def main():
     files_exist = {
         "JMeter Results": os.path.exists(f"results/{test_name}_results.jtl"),
         "JMeter Log": os.path.exists(f"results/{test_name}_jmeter.log"),
-        "HTML Report": os.path.exists(f"results/{test_name}_report/index.html"),
-        "Performance CSV": os.path.exists(clean_file),
-        "Performance Graph": os.path.exists("results/profiling/graphs/performance_report.png")
+        "HTML Report": os.path.exists(f"results/{test_name}_report/index.html")
     }
+    
+    if args.profile:
+        files_exist["Performance CSV"] = os.path.exists(clean_file) if clean_file else False
+        files_exist["Performance Graph"] = os.path.exists("results/profiling/graphs/performance_report.png")
     
     all_present = all(files_exist.values())
     if all_present:
@@ -653,9 +745,12 @@ def main():
     print(f"  - JMeter Results:     results/{test_name}_results.jtl")
     print(f"  - JMeter Log:         results/{test_name}_jmeter.log")
     print(f"  - HTML Report:        results/{test_name}_report/index.html")
-    print(f"  - Performance (Raw):  {perf_file}")
-    print(f"  - Performance (Clean): {clean_file}")
-    print(f"  - Performance Graphs: results/profiling/graphs/performance_report.png")
+    
+    if args.profile:
+        print(f"  - Performance (Raw):  {perf_file}")
+        print(f"  - Performance (Clean): {clean_file}")
+        print(f"  - Performance Graphs: results/profiling/graphs/performance_report.png")
+    
     print()
     print("To view HTML report, run:")
     print(f"  start results/{test_name}_report/index.html")

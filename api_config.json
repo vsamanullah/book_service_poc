@@ -1,0 +1,62 @@
+{
+  "environments": {
+    "source": {
+      "base_url": "https://10.134.77.68",
+      "protocol": "https",
+      "host": "10.134.77.68",
+      "port": 443,
+      "api_prefix": "/api",
+      "verify_ssl": false,
+      "timeout": 30,
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "description": "Source API Environment"
+    },
+    "target": {
+      "base_url": "https://10.134.77.68",
+      "protocol": "https",
+      "host": "10.134.77.68",
+      "port": 443,
+      "api_prefix": "/api",
+      "verify_ssl": false,
+      "timeout": 30,
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "description": "Target API Environment (Post-Migration)"
+    },
+    "local": {
+      "base_url": "http://localhost:50524",
+      "protocol": "http",
+      "host": "localhost",
+      "port": 50524,
+      "api_prefix": "/api",
+      "verify_ssl": false,
+      "timeout": 30,
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "description": "Local Development API"
+    }
+  },
+  "endpoints": {
+    "authors": {
+      "list": "/Authors",
+      "get": "/Authors/{id}",
+      "create": "/Authors",
+      "update": "/Authors/{id}",
+      "delete": "/Authors/{id}"
+    },
+    "books": {
+      "list": "/Books",
+      "get": "/Books/{id}",
+      "create": "/Books",
+      "update": "/Books/{id}",
+      "delete": "/Books/{id}"
+    }
+  }
+}

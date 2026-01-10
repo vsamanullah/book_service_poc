@@ -33,6 +33,8 @@
           </elementProp>
         </collectionProp>
       </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
       <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="JDBC Connection Configuration">
@@ -54,9 +56,10 @@
         <stringProp name="initQuery"></stringProp>
       </JDBCDataSource>
       <hashTree/>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Authors Operations - CRUD (25%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Authors Operations - CRUD (25%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -70,7 +73,7 @@
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Authors] ORDER BY ID DESC</stringProp>
@@ -83,7 +86,7 @@
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - SELECT by ID">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - SELECT by ID" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 1 * FROM [dbo].[Authors] ORDER BY NEWID()</stringProp>
@@ -96,7 +99,7 @@
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as AuthorCount FROM [dbo].[Authors]</stringProp>
@@ -109,7 +112,7 @@
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">INSERT INTO [dbo].[Authors] (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation) 
@@ -123,7 +126,7 @@ VALUES (NEWID(), &apos;TestAuthor${__UUID}&apos;, &apos;Test${__Random(1,9999)}&
             <stringProp name="resultSetHandler">Store as String</stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - UPDATE">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - UPDATE" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">UPDATE TOP (1) [dbo].[Authors] 
@@ -138,11 +141,11 @@ WHERE FirstName LIKE &apos;TestAuthor%&apos;</stringProp>
             <stringProp name="resultSetHandler">Store as String</stringProp>
           </JDBCSampler>
           <hashTree/>
-          <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="Authors - Create then Delete">
+          <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="Authors - Create then Delete" enabled="true">
             <boolProp name="TransactionController.includeTimers">false</boolProp>
           </TransactionController>
           <hashTree>
-            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT for Delete">
+            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT for Delete" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
               <stringProp name="query">INSERT INTO [dbo].[Authors] (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation) 
@@ -156,7 +159,7 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
               <stringProp name="resultSetHandler">Store as String</stringProp>
             </JDBCSampler>
             <hashTree/>
-            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - DELETE">
+            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - DELETE" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
               <stringProp name="query">DELETE TOP (1) FROM [dbo].[Authors] WHERE FirstName LIKE &apos;DeleteMe%&apos;</stringProp>
@@ -176,10 +179,10 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
         </ConstantTimer>
         <hashTree/>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Books Operations - CRUD (35%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">0</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Books Operations - CRUD (35%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -193,7 +196,7 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 100 * FROM [dbo].[Books] ORDER BY ID DESC</stringProp>
@@ -206,7 +209,7 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT by ID">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT by ID" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 1 * FROM [dbo].[Books] ORDER BY NEWID()</stringProp>
@@ -219,7 +222,7 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT with JOIN">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT with JOIN" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 50 b.*, a.FirstName, a.LastName 
@@ -235,7 +238,7 @@ ORDER BY b.ID DESC</stringProp>
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as BookCount FROM [dbo].[Books]</stringProp>
@@ -248,11 +251,11 @@ ORDER BY b.ID DESC</stringProp>
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating) 
-VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;Performance test book description&apos;, 10, GETDATE(), ${__Random(1,5)})</stringProp>
+VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;Performance test book description&apos;, (SELECT TOP 1 ID FROM [dbo].[Genres] ORDER BY NEWID()), GETDATE(), ${__Random(1,5)})</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
             <stringProp name="variableNames"></stringProp>
@@ -262,7 +265,7 @@ VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] O
             <stringProp name="resultSetHandler">Store as String</stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - UPDATE">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - UPDATE" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">UPDATE TOP (1) [dbo].[Books] 
@@ -281,11 +284,11 @@ WHERE Title LIKE &apos;Test Book%&apos;</stringProp>
             <boolProp name="TransactionController.includeTimers">false</boolProp>
           </TransactionController>
           <hashTree>
-            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT for Delete">
+            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT for Delete" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
               <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating) 
-VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), 2025, 19.99, &apos;To be deleted&apos;, 10, GETDATE(), 3)</stringProp>
+VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;To be deleted&apos;, (SELECT TOP 1 ID FROM [dbo].[Genres] ORDER BY NEWID()), GETDATE(), ${__Random(1,5)})</stringProp>
               <stringProp name="queryArguments"></stringProp>
               <stringProp name="queryArgumentsTypes"></stringProp>
               <stringProp name="variableNames"></stringProp>
@@ -295,7 +298,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
               <stringProp name="resultSetHandler">Store as String</stringProp>
             </JDBCSampler>
             <hashTree/>
-            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - DELETE">
+            <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - DELETE" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
               <stringProp name="query">DELETE TOP (1) FROM [dbo].[Books] WHERE Title LIKE &apos;DeleteMe%&apos;</stringProp>
@@ -315,10 +318,10 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         </ConstantTimer>
         <hashTree/>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Customers Operations - Read Only (20%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">0</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Customers Operations - Read Only (20%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -332,7 +335,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Customers] ORDER BY RegistrationDate DESC</stringProp>
@@ -345,7 +348,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT by ID">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT by ID" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 1 * FROM [dbo].[Customers] ORDER BY NEWID()</stringProp>
@@ -358,7 +361,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT by Email">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT by Email" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT * FROM [dbo].[Customers] WHERE Email LIKE &apos;%test%&apos;</stringProp>
@@ -371,7 +374,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as CustomerCount FROM [dbo].[Customers]</stringProp>
@@ -390,10 +393,10 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         </ConstantTimer>
         <hashTree/>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Stocks Operations - Read Only (10%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">0</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Stocks Operations - Read Only (10%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -407,7 +410,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 100 * FROM [dbo].[Stocks]</stringProp>
@@ -420,7 +423,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT Available">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT Available" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT * FROM [dbo].[Stocks] WHERE IsAvailable = 1</stringProp>
@@ -433,7 +436,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT by BookId">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT by BookId" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT * FROM [dbo].[Stocks] WHERE BookId = ${__Random(1,30)}
@@ -447,7 +450,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as StockCount FROM [dbo].[Stocks]</stringProp>
@@ -466,10 +469,10 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         </ConstantTimer>
         <hashTree/>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Rentals Operations - Read Only (5%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">0</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Rentals Operations - Read Only (5%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -479,11 +482,11 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <RandomController guiclass="RandomControlGui" testclass="RandomController" testname="Random Rental Read">
+        <RandomController guiclass="RandomControlGui" testclass="RandomController" testname="Random Rental Read" enabled="true">
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 100 * FROM [dbo].[Rentals] ORDER BY RentalDate DESC</stringProp>
@@ -496,7 +499,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT Active">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT Active" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT * FROM [dbo].[Rentals] WHERE Status = &apos;Active&apos;</stringProp>
@@ -509,7 +512,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as RentalCount FROM [dbo].[Rentals]</stringProp>
@@ -528,10 +531,10 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         </ConstantTimer>
         <hashTree/>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Genres Operations - Read Only (5%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">0</intProp>
-        <longProp name="ThreadGroup.duration">50</longProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Genres Operations - Read Only (5%)" enabled="true">
+        <intProp name="ThreadGroup.num_threads">20</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -545,7 +548,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
           <intProp name="InterleaveControl.style">1</intProp>
         </RandomController>
         <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT All">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT * FROM [dbo].[Genres]</stringProp>
@@ -558,7 +561,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT by ID">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT by ID" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT TOP 1 * FROM [dbo].[Genres] ORDER BY NEWID()</stringProp>
@@ -571,7 +574,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="resultSetMaxRows"></stringProp>
           </JDBCSampler>
           <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - COUNT">
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - COUNT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as GenreCount FROM [dbo].[Genres]</stringProp>

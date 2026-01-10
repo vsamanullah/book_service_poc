@@ -96,23 +96,44 @@ The module uses `../db_config.json` for database connections. Ensure this file e
 **Purpose**: Quickly view database table structures
 
 ```bash
-python check_schema.py
+# Check target environment (default)
+python check_schema.py --env target
+
+# Check source environment
+python check_schema.py --env source
+
+# Check local environment
+python check_schema.py --env local
+
+# Using custom config file
+python check_schema.py --env target --config /path/to/db_config.json
 ```
 
 **Output Example:**
 ```
+======================================================================
+Checking Schema - Environment: TARGET
+Database: BookStore-Master
+Server: 10.134.77.68,1433
+======================================================================
+
 === Authors Table Structure ===
-  Id                   int             NULL=NO
-  Name                 nvarchar        NULL=NO
-  Bio                  nvarchar        NULL=YES
-  Nationality          nvarchar        NULL=YES
+  Column Name                    Data Type       Nullable   Max Length
+  ------------------------------ --------------- ---------- ----------
+  ID                             int             NO         N/A
+  FirstName                      nvarchar        NO         100
+  LastName                       nvarchar        NO         -1
+  BirthDate                      datetime        NO         N/A
+  Nationality                    nvarchar        NO         -1
 
 === Books Table Structure ===
-  Id                   int             NULL=NO
-  Title                nvarchar        NULL=NO
-  AuthorId             int             NULL=NO
-  ISBN                 nvarchar        NULL=NO
-  Price                decimal         NULL=NO
+  Column Name                    Data Type       Nullable   Max Length
+  ------------------------------ --------------- ---------- ----------
+  ID                             int             NO         N/A
+  Title                          nvarchar        NO         100
+  AuthorId                       int             NO         N/A
+  Year                           int             NO         N/A
+  Price                          decimal         NO         N/A
 ```
 
 ### 2. Create Baseline (Pre-Migration)
@@ -120,18 +141,24 @@ python check_schema.py
 **Purpose**: Capture complete database state before migration
 
 ```bash
-# Using environment configuration (recommended)
+# Create baseline for source environment (recommended for pre-migration)
 python create_baseline.py --env source
 
-# Using direct connection string
-python create_baseline.py --conn "DRIVER={ODBC Driver 18 for SQL Server};SERVER=server;DATABASE=db;UID=user;PWD=pass;..."
+# Create baseline for target environment
+python create_baseline.py --env target
 
-# Specify custom output file
+# Create baseline for local environment
+python create_baseline.py --env local
+
+# Specify custom output filename
 python create_baseline.py --env source --output my_baseline.json
+
+# Using custom config file
+python create_baseline.py --env source --config /path/to/db_config.json
 ```
 
 **Generated Files:**
-- `baseline_YYYYMMDD_HHMMSS.json`: Complete database snapshot
+- `baseline_<env>_YYYYMMDD_HHMMSS.json`: Complete database snapshot (e.g., `baseline_source_20260110_165255.json`)
 - `baseline_YYYYMMDD_HHMMSS.log`: Detailed execution log
 
 **Baseline Contents:**
@@ -147,23 +174,31 @@ python create_baseline.py --env source --output my_baseline.json
 **Purpose**: Create controlled test datasets for testing
 
 ```bash
-# Create 25 authors with related data
-python populate_test_data.py 25 --env source
+# Populate target environment with 10 records (default)
+python populate_test_data.py --count 10 --env target
 
-# Create 100 authors with related data
-python populate_test_data.py 100 --env local
+# Populate source environment with 25 records
+python populate_test_data.py --count 25 --env source
 
-# Using direct connection string
-python populate_test_data.py 50 --conn "DRIVER={...};SERVER=...;..."
+# Populate local environment with 100 records
+python populate_test_data.py --count 100 --env local
+
+# Using custom config file
+python populate_test_data.py --count 50 --env target --config /path/to/db_config.json
 ```
 
-**Data Generation Pattern (for N authors):**
-- **N Authors** with unique names, bios, and nationalities
-- **2N Books** (2 books per author) with ISBNs, prices, ratings
-- **N Customers** with email addresses and registration dates
-- **6N Stocks** (3 copies per book, 2 branches)
+**Data Generation Pattern (for N records with --count N):**
+- **N Authors** with unique names, bios, nationalities, timestamps
+- **2N Books** (2 books per author) with titles, prices, ratings, genres
+- **N Customers** with email addresses, registration dates
+- **~6N Stocks** (3 copies per book)
 - **~3N Rentals** (approximately 50% of stocks rented)
-- **5 Genres** (Fiction, Non-Fiction, Science, History, Biography)
+- **1 Genre** (automatically created if none exists)
+
+**Important Notes:**
+- ⚠ **This script DELETES all existing records** before populating
+- All generated records have unique timestamp-based identifiers
+- Maintains referential integrity with proper foreign key relationships
 
 **Generated Files:**
 - `populate_YYYYMMDD_HHMMSS.log`: Execution log with record counts
@@ -173,14 +208,20 @@ python populate_test_data.py 50 --conn "DRIVER={...};SERVER=...;..."
 **Purpose**: Compare post-migration state against baseline
 
 ```bash
-# Using environment configuration
+# Verify target environment (auto-detects most recent baseline)
 python verify_migration.py --env target
 
-# Using direct connection string with specific baseline
-python verify_migration.py --conn "DRIVER={...};..." --baseline baseline_20260110_143022.json
+# Verify source environment
+python verify_migration.py --env source
 
-# Generate detailed report
-python verify_migration.py --env target --report migration_report.json
+# Using specific baseline file
+python verify_migration.py --env target --baseline baseline_source_20260110_165255.json
+
+# Compare two baseline files directly (source vs target)
+python verify_migration.py --source-baseline baseline_source_20260110_165255.json --target-baseline baseline_target_20260110_165305.json
+
+# Using custom config file
+python verify_migration.py --env target --config /path/to/db_config.json
 ```
 
 **Verification Checks:**
@@ -197,19 +238,23 @@ python verify_migration.py --env target --report migration_report.json
 
 **Sample Output:**
 ```
-========================================
-VERIFICATION SUMMARY
-========================================
- Tests Passed: 32
- Tests Failed: 0
- Warnings: 2
- Overall Status: PASSED WITH WARNINGS
+======================================================================
+✓ MIGRATION VERIFICATION PASSED
+======================================================================
+Environment: TARGET
+No critical issues found. Migration integrity verified!
+======================================================================
+```
 
-✓ Authors: Row count matched (100 records)
+**Detailed Log Output:**
+```
+✓ Authors: Row count matched (25 records)
 ✓ Authors: Data checksum matched
-✓ Books: Row count matched (200 records)
+✓ Books: Row count matched (22 records)
 ✓ Books: Data checksum matched
-⚠ Indexes: New index found on Books.ISBN (non-critical)
+✓ Schema: All columns match baseline
+✓ Foreign Keys: All relationships preserved
+⚠ Indexes: New index found on Books.Title (non-critical)
 ```
 
 ---
@@ -220,18 +265,24 @@ VERIFICATION SUMMARY
 
 ```bash
 # Step 1: Populate source database with test data
-python populate_test_data.py 50 --env source
+python populate_test_data.py --count 50 --env source
 
-# Step 2: Create baseline snapshot
-python create_baseline.py --env source --output pre_migration_baseline.json
+# Step 2: Create source baseline snapshot
+python create_baseline.py --env source
 
 # Step 3: Perform your database migration
-# (External migration process)
+# (External migration process - e.g., SSIS, Azure Data Factory, custom scripts)
 
-# Step 4: Verify migration integrity
-python verify_migration.py --env target --baseline pre_migration_baseline.json
+# Step 4: Create target baseline snapshot
+python create_baseline.py --env target
 
-# Step 5: Review results
+# Step 5: Compare source and target baselines
+python verify_migration.py --source-baseline baseline_source_20260110_165255.json --target-baseline baseline_target_20260110_165305.json
+
+# Alternative Step 5: Verify target against live database
+python verify_migration.py --env target --baseline baseline_source_20260110_165255.json
+
+# Step 6: Review results
 # Check verification_YYYYMMDD_HHMMSS.log for detailed results
 ```
 
@@ -239,25 +290,45 @@ python verify_migration.py --env target --baseline pre_migration_baseline.json
 
 ```bash
 # Step 1: Inspect current schema
-python check_schema.py
+python check_schema.py --env local
 
 # Step 2: Create schema baseline
 python create_baseline.py --env local
 
-# (Make schema changes)
+# Step 3: Make schema changes (e.g., add columns, modify types)
+# (External schema modification)
 
-# Step 3: Verify schema changes
-python verify_migration.py --env local --baseline baseline_YYYYMMDD_HHMMSS.json
+# Step 4: Verify schema changes
+python verify_migration.py --env local
 ```
 
-### Workflow 3: Data Integrity Continuous Testing
+### Workflow 3: Continuous Integration Testing
 
 ```bash
-# Daily baseline creation
-python create_baseline.py --env production --output baselines/daily_$(date +%Y%m%d).json
+# CI/CD Pipeline Example
 
-# Compare against previous day
-python verify_migration.py --env production --baseline baselines/daily_20260109.json
+# 1. Reset test database to known state
+python populate_test_data.py --count 20 --env target
+
+# 2. Create baseline
+python create_baseline.py --env target
+
+# 3. Run application integration tests
+# (Your application tests)
+
+# 4. Verify data integrity after tests
+python verify_migration.py --env target
+
+# 5. Exit with appropriate code (0 = pass, 1 = fail)
+```
+
+### Workflow 4: Multi-Environment Comparison
+
+```bash
+# Compare production with staging
+python create_baseline.py --env source    # Production
+python create_baseline.py --env target    # Staging
+python verify_migration.py --source-baseline baseline_source_*.json --target-baseline baseline_target_*.json
 ```
 
 ---
@@ -436,7 +507,46 @@ python verify_migration.py --env production --baseline baselines/weekly_baseline
 
 | File Pattern | Generated By | Purpose |
 |--------------|--------------|---------|
-| `baseline_YYYYMMDD_HHMMSS.json` | create_baseline.py | Database snapshot |
+| `baseline_<env>_YYYYMMDD_HHMMSS.json` | create_baseline.py | Database snapshot with environment name |
+| `baseline_YYYYMMDD_HHMMSS.log` | create_baseline.py | Baseline creation execution log |
+| `populate_YYYYMMDD_HHMMSS.log` | populate_test_data.py | Data population execution log |
+| `verification_YYYYMMDD_HHMMSS.log` | verify_migration.py | Verification test results |
+
+**File Name Examples:**
+- `baseline_source_20260110_165255.json` - Source environment baseline
+- `baseline_target_20260110_165305.json` - Target environment baseline
+- `baseline_local_20260110_120000.json` - Local environment baseline
+
+---
+
+## Command Reference Summary
+
+### Quick Command Reference
+
+```bash
+# Schema inspection
+python check_schema.py --env <source|target|local>
+
+# Create baseline
+python create_baseline.py --env <source|target|local> [--output filename.json]
+
+# Populate test data
+python populate_test_data.py --count N --env <source|target|local>
+
+# Verify migration
+python verify_migration.py --env <source|target|local> [--baseline filename.json]
+
+# Compare two baselines
+python verify_migration.py --source-baseline source.json --target-baseline target.json
+```
+
+### Common Parameter Options
+
+All scripts support these common parameters:
+- `--env {source,target,local}` - Environment from config file
+- `--config /path/to/db_config.json` - Custom config file path
+
+---
 | `baseline_YYYYMMDD_HHMMSS.log` | create_baseline.py | Baseline creation log |
 | `verification_YYYYMMDD_HHMMSS.log` | verify_migration.py | Verification results |
 | `verification_report_YYYYMMDD_HHMMSS.json` | verify_migration.py | Detailed test results |

@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple, Optional
 import logging
 import sys
 import os
+import argparse
 
 # Configure logging
 logging.basicConfig(
@@ -26,12 +27,37 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_config(config_path="../../db_config.json", env_name="target"):
+    """Load database configuration from JSON file"""
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    return config['environments'][env_name]
+
+
+def build_connection_string(env_config):
+    """Build ODBC connection string from environment config"""
+    server = env_config.get('server', '')
+    port = env_config.get('port', '')
+    server_str = f"{server},{port}" if port else server
+    
+    return (
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={server_str};"
+        f"DATABASE={env_config['database']};"
+        f"UID={env_config.get('username', '')};"
+        f"PWD={env_config.get('password', '')};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=yes"
+    )
+
+
 class MigrationVerifier:
     """Verifies database migration integrity by comparing with baseline"""
     
-    def __init__(self, connection_string: str, baseline_file: str):
+    def __init__(self, connection_string: str, baseline_file: str, env_name: str = "target"):
         self.connection_string = connection_string
         self.baseline_file = baseline_file
+        self.env_name = env_name
         self.baseline = None
         self.current = None
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -529,93 +555,136 @@ class MigrationVerifier:
 
 
 def main():
-    """Main entry point"""
+    """Main execution function"""
+    parser = argparse.ArgumentParser(description='Verify database migration integrity')
+    parser.add_argument('--env', type=str, default='target',
+                       choices=['source', 'target', 'local'],
+                       help='Environment to verify (default: target)')
+    parser.add_argument('--config', type=str, default='../../db_config.json',
+                       help='Path to config file (default: ../../db_config.json)')
+    parser.add_argument('--baseline', type=str, default=None,
+                       help='Path to baseline file (default: auto-detect most recent)')
+    parser.add_argument('--source-baseline', type=str, default=None,
+                       help='Source baseline file for comparison')
+    parser.add_argument('--target-baseline', type=str, default=None,
+                       help='Target baseline file for comparison')
+    
+    args = parser.parse_args()
+    
     print("""
-╔══════════════════════════════════════════════════════════════════╗
-║   Database Migration Verifier - Part 2                          ║
-║   Verify migration against baseline                             ║
-╚══════════════════════════════════════════════════════════════════╝
+══════════════════════════════════════════════════════════════════════
+          Database Migration Verifier
+          Compare baseline with current database state
+══════════════════════════════════════════════════════════════════════
     """)
     
-    # Database connection string - Try multiple driver options
-    # Try to find best available driver (prefer newer ones)
-    available_driver = None
-    try:
-        import pyodbc
-        all_drivers = pyodbc.drivers()
+    # If both source and target baselines provided, compare them instead
+    if args.source_baseline and args.target_baseline:
+        print("="*70)
+        print("MODE: Comparing Source and Target Baselines")
+        print("="*70)
+        print(f"Source: {args.source_baseline}")
+        print(f"Target: {args.target_baseline}")
+        print("="*70 + "\n")
         
-        # Preferred driver order (newest first)
-        preferred_drivers = [
-            "ODBC Driver 17 for SQL Server",
-            "ODBC Driver 13 for SQL Server",
-            "SQL Server Native Client 11.0",
-            "SQL Server"
-        ]
+        # This is a baseline-to-baseline comparison
+        # We'll use target environment connection but primarily compare JSON files
+        try:
+            env_config = load_config(args.config, args.env)
+            connection_string = build_connection_string(env_config)
+        except Exception as e:
+            print(f"\n✗ Error loading configuration: {e}")
+            sys.exit(1)
         
-        for driver in preferred_drivers:
-            if driver in all_drivers:
-                available_driver = driver
-                print(f"Using ODBC driver: {available_driver}")
-                break
-                
-        if not available_driver:
-            available_driver = "SQL Server"
-            print(f"Using default ODBC driver: {available_driver}")
-    except Exception as e:
-        available_driver = "SQL Server"
-        print(f"Warning: Could not detect drivers, using default: {e}")
-    
-    # Remote SQL Server connection with SQL Authentication
-    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
-    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
-    
-    connection_string = (
-        f"DRIVER={{{driver_to_use}}};"
-        "SERVER=10.134.77.68,1433;"  # Using IP address directly
-        "DATABASE=BookStore-Master;"
-        "UID=testuser;"
-        "PWD=TestDb@26#!;"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
-    )
-    
-    # Get baseline file
-    baseline_file = None
-    if len(sys.argv) > 1:
-        baseline_file = sys.argv[1]
+        # Create verifier with source baseline
+        verifier = MigrationVerifier(connection_string, args.source_baseline, args.env)
+        
+        if not verifier.load_baseline():
+            print(f"\n✗ Failed to load source baseline: {args.source_baseline}")
+            sys.exit(1)
+        
+        # Load target baseline as "current"
+        try:
+            with open(args.target_baseline, 'r') as f:
+                verifier.current = json.load(f)
+            logger.info(f"✓ Loaded target baseline: {args.target_baseline}")
+        except Exception as e:
+            print(f"\n✗ Failed to load target baseline: {e}")
+            sys.exit(1)
     else:
-        # Find most recent baseline file
-        baseline_files = [f for f in os.listdir('.') if f.startswith('baseline_') and f.endswith('.json')]
-        if baseline_files:
-            baseline_file = sorted(baseline_files)[-1]
-            print(f"Using baseline file: {baseline_file}")
-        else:
-            print(f"\n❌ No baseline files found in current directory")
-            print("\n📋 Please create a baseline first using: python create_baseline.py")
+        # Normal mode: compare baseline with current database
+        # Load configuration
+        try:
+            env_config = load_config(args.config, args.env)
+            connection_string = build_connection_string(env_config)
+        except Exception as e:
+            print(f"\n✗ Error loading configuration: {e}")
+            sys.exit(1)
+        
+        # Print environment info
+        print("="*70)
+        print(f"Environment: {args.env.upper()}")
+        print(f"Database: {env_config['database']}")
+        print(f"Server: {env_config.get('server', 'N/A')}")
+        print("="*70)
+        
+        # Get baseline file
+        baseline_file = args.baseline
+        if not baseline_file:
+            # Find most recent baseline file for this environment
+            baseline_pattern = f'baseline_{args.env}_'
+            baseline_files = [f for f in os.listdir('.') if f.startswith(baseline_pattern) and f.endswith('.json')]
+            if baseline_files:
+                baseline_file = sorted(baseline_files)[-1]
+                print(f"Auto-detected baseline: {baseline_file}")
+            else:
+                # Try any baseline file
+                baseline_files = [f for f in os.listdir('.') if f.startswith('baseline_') and f.endswith('.json')]
+                if baseline_files:
+                    baseline_file = sorted(baseline_files)[-1]
+                    print(f"⚠ No {args.env}-specific baseline found, using: {baseline_file}")
+                else:
+                    print(f"\n✗ No baseline files found in current directory")
+                    print(f"\n  Please create a baseline first:")
+                    print(f"    python create_baseline.py --env {args.env}")
+                    sys.exit(1)
+        
+        if not os.path.exists(baseline_file):
+            print(f"\n✗ Baseline file not found: {baseline_file}")
+            print(f"\n  Please create a baseline first:")
+            print(f"    python create_baseline.py --env {args.env}")
+            sys.exit(1)
+        
+        print(f"Using baseline: {baseline_file}")
+        print("="*70 + "\n")
+        
+        # Create verifier
+        verifier = MigrationVerifier(connection_string, baseline_file, args.env)
+        
+        # Load baseline
+        if not verifier.load_baseline():
+            print("\n✗ Failed to load baseline file")
+            sys.exit(1)
+        
+        # Capture current state
+        print("\n" + "="*70)
+        print("Capturing current database state for comparison...")
+        print("="*70)
+        
+        try:
+            verifier.capture_current_state()
+        except Exception as e:
+            logger.error(f"\n✗ Failed to capture current state: {e}")
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
     
-    if not os.path.exists(baseline_file):
-        print(f"\n❌ Baseline file not found: {baseline_file}")
-        print("\n📋 Please create a baseline first using: python create_baseline.py")
-        sys.exit(1)
-    
-    # Create verifier
-    verifier = MigrationVerifier(connection_string, baseline_file)
-    
-    # Load baseline
-    if not verifier.load_baseline():
-        print("\n❌ Failed to load baseline file")
-        sys.exit(1)
-    
-    # Capture current state
+    # Compare and verify
     print("\n" + "="*70)
-    print("Capturing current database state for comparison...")
-    print("="*70)
+    print("Comparing baseline with current state...")
+    print("="*70 + "\n")
     
     try:
-        verifier.capture_current_state()
-        
-        # Compare and verify
         verifier.compare_and_verify()
         
         # Generate report
@@ -624,22 +693,26 @@ def main():
         # Final result
         if results['failed'] == 0:
             print("\n" + "="*70)
-            print("✅ MIGRATION VERIFICATION PASSED")
+            print("✓ MIGRATION VERIFICATION PASSED")
             print("="*70)
+            print(f"Environment: {args.env.upper()}")
             print("No critical issues found. Migration integrity verified!")
             if results['warnings'] > 0:
-                print(f"⚠  Note: {results['warnings']} warnings detected (see log for details)")
+                print(f"⚠ Note: {results['warnings']} warnings detected (see log for details)")
+            print("="*70)
             sys.exit(0)
         else:
             print("\n" + "="*70)
-            print("❌ MIGRATION VERIFICATION FAILED")
+            print("✗ MIGRATION VERIFICATION FAILED")
             print("="*70)
+            print(f"Environment: {args.env.upper()}")
             print(f"Found {results['failed']} critical issue(s).")
             print("Check the log file for detailed information.")
+            print("="*70)
             sys.exit(1)
             
     except Exception as e:
-        logger.error(f"\n❌ Verification failed: {e}")
+        logger.error(f"\n✗ Verification failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -647,3 +720,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

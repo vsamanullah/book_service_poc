@@ -44,54 +44,22 @@ def load_config(config_path: str) -> dict:
 
 def build_connection_string(env_config: dict) -> str:
     """Build connection string from environment configuration"""
-    server = env_config['server']
-    database = env_config['database']
+    server = env_config.get('server', '')
+    port = env_config.get('port', '')
+    server_str = f"{server},{port}" if port else server
     
-    # Check for authentication type (supports both old and new config formats)
-    auth_type = env_config.get('authentication', 'SQL')  # Default to SQL if not specified
-    use_windows_auth = env_config.get('trusted_connection', False) or auth_type == 'Windows'
-    
-    if not use_windows_auth and ('username' in env_config and env_config['username']):
-        # SQL Authentication
-        username = env_config['username']
-        password = env_config['password']
-        driver = env_config.get('driver', 'ODBC Driver 18 for SQL Server')
-        
-        conn_str = (
-            f"DRIVER={{{driver}}};"
-            f"SERVER={server};"
-            f"DATABASE={database};"
-            f"UID={username};"
-            f"PWD={password};"
-        )
-        
-        # Add optional encryption settings
-        encrypt = env_config.get('encrypt', False)
-        trust_cert = env_config.get('trust_certificate', False)
-        
-        if isinstance(encrypt, bool):
-            conn_str += f"Encrypt={'yes' if encrypt else 'no'};"
-        elif 'encrypt' in env_config:
-            conn_str += f"Encrypt={env_config['encrypt']};"
-            
-        if isinstance(trust_cert, bool):
-            conn_str += f"TrustServerCertificate={'yes' if trust_cert else 'no'};"
-        elif 'trust_certificate' in env_config:
-            conn_str += f"TrustServerCertificate={env_config['trust_certificate']};"
-            
-        return conn_str
-    else:
-        # Windows Authentication
-        driver = env_config.get('driver', 'ODBC Driver 18 for SQL Server')
-        return (
-            f"DRIVER={{{driver}}};"
-            f"SERVER={server};"
-            f"DATABASE={database};"
-            "Trusted_Connection=yes;"
-        )
+    return (
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={server_str};"
+        f"DATABASE={env_config['database']};"
+        f"UID={env_config.get('username', '')};"
+        f"PWD={env_config.get('password', '')};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=yes"
+    )
 
 
-def get_connection_from_config(env_name: str, config_path: str = "../db_config.json") -> str:
+def get_connection_from_config(env_name: str, config_path: str = "../../db_config.json") -> str:
     """Get connection string for specified environment from config file"""
     config = load_config(config_path)
     
@@ -110,9 +78,10 @@ def get_connection_from_config(env_name: str, config_path: str = "../db_config.j
 class TestDataPopulator:
     """Manages test data population for BookService database"""
     
-    def __init__(self, connection_string: str, record_count: int):
+    def __init__(self, connection_string: str, record_count: int, env_name: str = "target"):
         self.connection_string = connection_string
         self.record_count = record_count
+        self.env_name = env_name
         self.timestamp = datetime.now()
         
     def get_connection(self):
@@ -666,84 +635,48 @@ Examples:
         """
     )
     
-    parser.add_argument('count', type=int,
-                       help='Number of records to create per table')
-    parser.add_argument('--env', choices=['source', 'target', 'local'],
-                       help='Environment to populate (from config file)')
-    parser.add_argument('--config', default='../db_config.json',
-                       help='Path to config file (default: ../db_config.json)')
-    parser.add_argument('--conn',
-                       help='Direct connection string (overrides --env)')
+    parser.add_argument('--count', type=int, default=10,
+                       help='Number of records to create per table (default: 10)')
+    parser.add_argument('--env', type=str, default='target',
+                       choices=['source', 'target', 'local'],
+                       help='Environment to populate (default: target)')
+    parser.add_argument('--config', type=str, default='../../db_config.json',
+                       help='Path to config file (default: ../../db_config.json)')
     
     args = parser.parse_args()
     
     # Validate record count
     record_count = args.count
     if record_count <= 0:
-        print(f"❌ Error: Invalid record count '{record_count}'")
-        print("   Record count must be a positive integer")
+        print(f"✗ Error: Invalid record count '{record_count}'")
+        print("  Record count must be a positive integer")
         sys.exit(1)
     
-    # Resolve connection string
-    connection_string = None
-    
-    if args.conn:
-        # Direct connection string provided
-        connection_string = args.conn
-        logger.info("Using direct connection string")
-    elif args.env:
-        # Load from config file
+    # Load configuration
+    try:
         connection_string = get_connection_from_config(args.env, args.config)
-    else:
-        # No connection provided - use default
-        logger.info("No connection specified, using default target database")
-        
-        # Detect best available ODBC driver
-        available_driver = None
-        try:
-            all_drivers = pyodbc.drivers()
-            
-            preferred_drivers = [
-                "ODBC Driver 18 for SQL Server",
-                "ODBC Driver 17 for SQL Server",
-                "ODBC Driver 13 for SQL Server",
-                "SQL Server Native Client 11.0",
-                "SQL Server"
-            ]
-            
-            for driver in preferred_drivers:
-                if driver in all_drivers:
-                    available_driver = driver
-                    print(f"Using ODBC driver: {available_driver}")
-                    break
-                    
-            if not available_driver:
-                available_driver = "SQL Server"
-                print(f"Using default ODBC driver: {available_driver}")
-        except Exception as e:
-            available_driver = "SQL Server"
-            print(f"Warning: Could not detect drivers, using default: {e}")
-        
-        # Remote SQL Server connection with SQL Authentication
-        driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
-        
-        connection_string = (
-            f"DRIVER={{{driver_to_use}}};"
-            "SERVER=10.134.77.68,1433;"
-            "DATABASE=BookStore-Master;"
-            "UID=testuser;"
-            "PWD=TestDb@26#!;"
-            "Encrypt=yes;"
-            "TrustServerCertificate=yes;"
-        )
+        env_config = load_config(args.config)['environments'][args.env]
+    except Exception as e:
+        print(f"\n✗ Error loading configuration: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n✗ Error loading configuration: {e}")
+        sys.exit(1)
     
     # Create populator instance
-    populator = TestDataPopulator(connection_string, record_count)
+    populator = TestDataPopulator(connection_string, record_count, args.env)
+    
+    # Print environment info
+    print("="*70)
+    print(f"Environment: {args.env.upper()}")
+    print(f"Database: {env_config['database']}")
+    print(f"Server: {env_config.get('server', 'N/A')}")
+    print(f"Records per table: {record_count}")
+    print("="*70)
     
     # Test connection
     if not populator.test_connection():
-        print("\n Cannot connect to database. Please check connection string.")
-        print(f"   Connection: {connection_string}")
+        print("\n✗ Cannot connect to database. Please check configuration.")
         sys.exit(1)
     
     # Show summary before deletion
@@ -754,7 +687,7 @@ Examples:
     
     # Info about what will happen
     print("\n" + "="*70)
-    print("  Starting: DELETE ALL records and populate with new data")
+    print("⚠ WARNING: This will DELETE ALL records and populate with new data")
     print("="*70)
     print(f"Will populate with {record_count} new test records per table")
     print("(Authors: {}, Books: {}, Customers: {}, Stocks: ~{}, Rentals: ~{})".format(
@@ -772,22 +705,23 @@ Examples:
         populator.print_summary()
         
         print("\n" + "="*70)
-        print(" TEST DATA POPULATED SUCCESSFULLY")
+        print("✓ TEST DATA POPULATED SUCCESSFULLY")
         print("="*70)
-        print(f"\n Summary:")
-        print(f"   • Deleted all existing records")
-        print(f"   • Created {record_count} authors")
-        print(f"   • Created {record_count * 2} books")
-        print(f"   • Created {record_count} customers")
-        print(f"   • Created ~{record_count * 6} stocks (3 copies per book)")
-        print(f"   • Created ~{record_count * 3} rentals")
-        print(f"   • All records have unique timestamp-based identifiers")
+        print(f"\n  Summary:")
+        print(f"    • Environment: {args.env.upper()}")
+        print(f"    • Deleted all existing records")
+        print(f"    • Created {record_count} authors")
+        print(f"    • Created {record_count * 2} books")
+        print(f"    • Created {record_count} customers")
+        print(f"    • Created ~{record_count * 6} stocks (3 copies per book)")
+        print(f"    • Created ~{record_count * 3} rentals")
+        print(f"    • All records have unique timestamp-based identifiers")
         print("="*70)
         
         sys.exit(0)
         
     except Exception as e:
-        logger.error(f"\n Error: {e}")
+        logger.error(f"\n✗ Error: {e}")
         sys.exit(1)
 
 

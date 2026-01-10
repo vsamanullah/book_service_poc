@@ -28,7 +28,7 @@ except ImportError:
 
 # Configuration
 JMETER_TEST_PLAN = Path("JMeter_DB_Mixed_Operations.jmx")
-CONFIG_FILE = Path("../db_config.json")
+CONFIG_FILE = Path("../../db_config.json")
 JMETER_RESULTS_DIR = Path("jmeter_results")
 
 # Auto-detect best available ODBC driver
@@ -498,7 +498,7 @@ def seed_stocks(connection_string):
         print()
 
 
-def run_jmeter_test(env_config, results_dir):
+def run_jmeter_test(env_config, results_dir, timeout=600):
     """Run JMeter test"""
     print_header("[Step 4/7] Running JMeter Test")
     
@@ -531,11 +531,12 @@ def run_jmeter_test(env_config, results_dir):
     print(f"  Test Plan: {JMETER_TEST_PLAN}")
     print(f"  Results: {jtl_file}")
     print(f"  Report: {report_dir}")
+    print(f"  Timeout: {timeout} seconds")
     print()
     print_color("  Starting JMeter test...", Colors.YELLOW)
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         
         if result.returncode == 0:
             print_color("  ✓ JMeter test completed successfully", Colors.GREEN)
@@ -609,16 +610,34 @@ def stop_performance_monitoring(proc):
         return
     
     try:
-        proc.send_signal(signal.CTRL_C_EVENT if os.name == 'nt' else signal.SIGINT)
-        proc.wait(timeout=5)
+        # Try graceful shutdown first
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/F', '/PID', str(proc.pid)], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
+        else:
+            proc.send_signal(signal.SIGINT)
+            proc.wait(timeout=3)
         print_color("  ✓ Performance monitoring stopped", Colors.GREEN)
+    except subprocess.TimeoutExpired:
+        print_color("  ⚠ Monitoring process timeout, forcing termination", Colors.YELLOW)
+        try:
+            proc.kill()
+            proc.wait(timeout=1)
+        except:
+            pass
+    except KeyboardInterrupt:
+        print_color("  ⚠ Interrupted - forcing process termination", Colors.YELLOW)
+        try:
+            proc.kill()
+        except:
+            pass
+        raise
     except Exception as e:
         print_color(f"  ⚠ Error stopping monitoring: {e}", Colors.YELLOW)
         try:
-            proc.terminate()
-            proc.wait(timeout=2)
-        except:
             proc.kill()
+        except:
+            pass
     print()
 
 
@@ -769,14 +788,16 @@ Examples:
     
     parser.add_argument('--env', '--environment', type=str, dest='environment', default='target',
                        help='Database environment from config file (source, target, local)')
-    parser.add_argument('--config', type=str, default='../db_config.json',
-                       help='Path to configuration file (default: ../db_config.json)')
+    parser.add_argument('--config', type=str, default='../../db_config.json',
+                       help='Path to configuration file (default: ../../db_config.json)')
     parser.add_argument('--cleanup', action='store_true',
                        help='Clean up all records from database tables (use before/after testing)')
     parser.add_argument('--no-profiling', action='store_true',
                        help='Skip system performance profiling')
     parser.add_argument('--no-seed', action='store_true',
                        help='Skip database seeding')
+    parser.add_argument('--timeout', type=int, default=1800,
+                       help='JMeter test timeout in seconds (default: 1800)')
     
     args = parser.parse_args()
     
@@ -834,7 +855,7 @@ Examples:
         time.sleep(2)  # Let monitoring stabilize
     
     # Run JMeter test
-    jtl_file, report_dir = run_jmeter_test(env_config, JMETER_RESULTS_DIR)
+    jtl_file, report_dir = run_jmeter_test(env_config, JMETER_RESULTS_DIR, timeout=args.timeout)
     
     # Stop monitoring
     if perf_proc:

@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 import logging
 import sys
+import argparse
 
 # Configure logging
 logging.basicConfig(
@@ -25,11 +26,36 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_config(config_path="../../db_config.json", env_name="target"):
+    """Load database configuration from JSON file"""
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    return config['environments'][env_name]
+
+
+def build_connection_string(env_config):
+    """Build ODBC connection string from environment config"""
+    server = env_config.get('server', '')
+    port = env_config.get('port', '')
+    server_str = f"{server},{port}" if port else server
+    
+    return (
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={server_str};"
+        f"DATABASE={env_config['database']};"
+        f"UID={env_config.get('username', '')};"
+        f"PWD={env_config.get('password', '')};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=yes"
+    )
+
+
 class DatabaseBaseline:
     """Creates and manages database baseline snapshots"""
     
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str, env_name: str = "target"):
         self.connection_string = connection_string
+        self.env_name = env_name
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Extract database connection details
@@ -317,7 +343,7 @@ class DatabaseBaseline:
     def save_baseline(self, filename: Optional[str] = None) -> str:
         """Save baseline to JSON file"""
         if filename is None:
-            filename = f"baseline_{self.timestamp}.json"
+            filename = f"baseline_{self.env_name}_{self.timestamp}.json"
         
         with open(filename, 'w') as f:
             json.dump(self.baseline_data, f, indent=2, default=str)
@@ -354,65 +380,46 @@ class DatabaseBaseline:
 
 
 def main():
-    """Main entry point"""
+    """Main execution function"""
+    parser = argparse.ArgumentParser(description='Create database baseline snapshot')
+    parser.add_argument('--env', type=str, default='source',
+                        choices=['source', 'target', 'local'],
+                        help='Environment to use (default: source)')
+    parser.add_argument('--config', type=str, default='../../db_config.json',
+                        help='Path to config file (default: ../../db_config.json)')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Output filename for baseline (default: baseline_<env>_<timestamp>.json)')
+    
+    args = parser.parse_args()
+    
     print("""
+══════════════════════════════════════════════════════════════════════
           Database Baseline Creator - Part 1 
           Create a baseline snapshot BEFORE migration  
+══════════════════════════════════════════════════════════════════════
     """)
     
-    # Database connection string - Try multiple driver options
-    # Try to find best available driver (prefer newer ones)
-    available_driver = None
+    # Load configuration
     try:
-        import pyodbc
-        all_drivers = pyodbc.drivers()
-        
-        # Preferred driver order (newest first)
-        preferred_drivers = [
-            "ODBC Driver 17 for SQL Server",
-            "ODBC Driver 13 for SQL Server",
-            "SQL Server Native Client 11.0",
-            "SQL Server"
-        ]
-        
-        for driver in preferred_drivers:
-            if driver in all_drivers:
-                available_driver = driver
-                print(f"Using ODBC driver: {available_driver}")
-                break
-                
-        if not available_driver:
-            available_driver = "SQL Server"
-            print(f"Using default ODBC driver: {available_driver}")
+        env_config = load_config(args.config, args.env)
+        connection_string = build_connection_string(env_config)
     except Exception as e:
-        available_driver = "SQL Server"
-        print(f"Warning: Could not detect drivers, using default: {e}")
-    
-    # Remote SQL Server connection with SQL Authentication
-    # Force use of ODBC Driver 18 for SQL Server (supports encryption parameters)
-    driver_to_use = "ODBC Driver 18 for SQL Server" if "ODBC Driver 18 for SQL Server" in pyodbc.drivers() else available_driver
-    
-    connection_string = (
-        f"DRIVER={{{driver_to_use}}};"
-        "SERVER=10.134.77.68,1433;"  # Using IP address directly
-        "DATABASE=BookStore-Master;"
-        "UID=testuser;"
-        "PWD=TestDb@26#!;"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
-    )
-    
-    # Allow custom connection string from command line
-    if len(sys.argv) > 1:
-        connection_string = sys.argv[1]
+        print(f"\n✗ Error loading configuration: {e}")
+        sys.exit(1)
     
     # Create baseline
-    baseline = DatabaseBaseline(connection_string)
+    baseline = DatabaseBaseline(connection_string, args.env)
+    
+    # Print environment info
+    print("="*70)
+    print(f"Environment: {args.env.upper()}")
+    print(f"Database: {env_config['database']}")
+    print(f"Server: {env_config.get('server', 'N/A')}")
+    print("="*70)
     
     # Test connection
     if not baseline.test_connection():
-        print("\n Cannot connect to database. Please check connection string.")
-        print(f"   Connection: {connection_string}")
+        print("\n✗ Cannot connect to database. Please check configuration.")
         sys.exit(1)
     
     # Info message
@@ -428,24 +435,30 @@ def main():
         baseline.print_summary()
         
         # Save baseline
-        filename = baseline.save_baseline()
+        filename = baseline.save_baseline(args.output)
         
         print("\n" + "="*70)
-        print(" BASELINE CREATED SUCCESSFULLY")
+        print("✓ BASELINE CREATED SUCCESSFULLY")
         print("="*70)
-        print(f"\n Baseline file: {filename}")
-        print("\n Next Steps:")
-        print("   1. Run your database migration")
-        print("   2. Execute: python verify_migration.py")
-        print(f"   3. Use baseline file: {filename}")
+        print(f"\n✓ Baseline file: {filename}")
+        print(f"✓ Environment: {args.env.upper()}")
+        print("\n  Next Steps:")
+        if args.env == 'source':
+            print("    1. Run your database migration")
+            print("    2. Create target baseline: python create_baseline.py --env target")
+            print("    3. Compare: python verify_migration.py --source <source_baseline> --target <target_baseline>")
+        else:
+            print(f"    1. Use this baseline for verification")
+            print(f"    2. Run: python verify_migration.py")
         print("="*70)
         
         sys.exit(0)
         
     except Exception as e:
-        logger.error(f"\n Error creating baseline: {e}")
+        logger.error(f"\n✗ Error creating baseline: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+

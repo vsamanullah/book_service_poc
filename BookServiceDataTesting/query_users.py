@@ -70,7 +70,7 @@ if __name__ == "__main__":
     parser.add_argument('--env', type=str, default='target',
                         choices=['source', 'target', 'local'],
                         help='Environment to use (default: target)')
-    parser.add_argument('--config', type=str, default='db_config.json',
+    parser.add_argument('--config', type=str, default='../db_config.json',
                         help='Path to config file (default: db_config.json)')
     
     args = parser.parse_args()

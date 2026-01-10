@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-01-10T17:16:06.373618",
+  "environment": "target",
+  "base_url": "https://10.134.77.68",
+  "available_apis": [
+    {
+      "endpoint": "GET /api/Authors",
+      "url": "https://10.134.77.68/api/Authors",
+      "description": "List all authors",
+      "status_code": 200
+    },
+    {
+      "endpoint": "GET /api/Books",
+      "url": "https://10.134.77.68/api/Books",
+      "description": "List all books",
+      "status_code": 200
+    }
+  ],
+  "unavailable_apis": [],
+  "summary": {
+    "total_available": 2,
+    "total_unavailable": 0
+  }
+}
