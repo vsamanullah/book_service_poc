@@ -1,2 +1,4 @@
 # For database migration testing
 pyodbc==5.0.1
+urllib3
+requests

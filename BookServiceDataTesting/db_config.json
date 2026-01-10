@@ -2,13 +2,13 @@
   "environments": {
     "source": {
       "server": "10.134.77.68,1433",
-      "database": "BookStore-Master-Source",
+      "database": "BookStore-Master",
       "username": "testuser",
       "password": "TestDb@26#!",
       "driver": "ODBC Driver 18 for SQL Server",
       "encrypt": true,
       "trust_certificate": true,
-      "description": "Source Database (Pre-Migration)"
+      "description": "Source Database (Same as Target - Temporary)"
     },
     "target": {
       "server": "10.134.77.68,1433",

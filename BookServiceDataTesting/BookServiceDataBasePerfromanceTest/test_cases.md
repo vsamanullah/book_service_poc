@@ -1,8 +1,34 @@
-# Database Load Testing - Test Cases Documentation
+# Database Performance Testing Suite - Test Cases Documentation
 
 ## Overview
 
-This document describes the test cases for the **BookServiceContext Database Performance Testing Tool**. The tool is designed to validate database performance under various load conditions and monitor SQL Server behavior during concurrent operations across **6 main business tables**.
+This document describes the test cases for the **BookServiceContext Database Performance Testing Tool**. The tool is a **JMeter wrapper** that automates database performance testing using Apache JMeter with JDBC, including optional system performance profiling.
+
+### Testing Approach
+
+**JMeter JDBC Load Testing**
+- Industry-standard performance testing via Apache JMeter
+- Direct JDBC connection to SQL Server
+- System-level performance profiling (CPU, Memory, Disk, Network) via Windows typeperf
+- Automated database cleanup and seeding
+- 50 threads per table group, 10-minute test duration, 2-second pacing
+- Auto-generated HTML reports with detailed statistics and charts
+- Ideal for: Enterprise-grade benchmarking, stakeholder reporting, repeatable tests
+
+### Command Examples
+```bash
+# Basic test with profiling
+python run_and_monitor_db_test.py --env target
+
+# Test without system profiling (faster)
+python run_and_monitor_db_test.py --env target --no-profiling
+
+# Cleanup database before test
+python run_and_monitor_db_test.py --env target --cleanup
+
+# Skip database seeding (use existing data)
+python run_and_monitor_db_test.py --env target --no-seed
+```
 
 ### Tables Under Test
 - **Authors** - Author information with full biographical data
@@ -118,13 +144,30 @@ Foreign Key Relationships:
 ```
 
 ### Test Data
-- **Genres**: 1 default genre ("General") - auto-seeded
+- **Genres**: 2 genres (ID=10: "General", ID=11: "Fiction") - auto-seeded
 - **Authors**: 20 pre-seeded records with full biographical data
-- **Books**: Generated dynamically during tests
+- **Books**: Generated dynamically during tests with FK to Authors (GenreId=10)
 - **Customers**: 20 pre-seeded customer records
-- **Stocks**: ~60 stock items (3 copies per book) - auto-seeded
-- **Rentals**: Generated dynamically during tests
-- **Test Records**: All marked with timestamp-based unique identifiers
+- **Stocks**: ~30 stock items (generated when books exist) - auto-seeded
+- **Rentals**: 0 initial records (table is empty at start)
+- **Test Records**: All marked with timestamp-based unique identifiers or "Test*" prefixes
+
+### JMeter Test Configuration
+```
+Test Duration: 600 seconds (10 minutes)
+Threads per Group: 50
+Ramp-up Time: 10 seconds
+Constant Timer: 2000ms (2-second pacing between requests)
+JDBC Pool: 50 connections, 10s timeout
+
+Thread Groups:
+1. Authors Operations (25% of load) - Full CRUD with Create-Delete pattern
+2. Books Operations (35% of load) - Full CRUD with Create-Delete pattern  
+3. Customers Operations (20% of load) - Read-only (SELECT queries)
+4. Stocks Operations (10% of load) - Read-only (SELECT queries)
+5. Rentals Operations (5% of load) - Read-only (SELECT queries)
+6. Genres Operations (5% of load) - Read-only (SELECT queries)
+```
 
 ---
 
@@ -164,32 +207,35 @@ Foreign Key Relationships:
 
 ### TC-002: Database Seeding
 
-**Objective**: Verify database can be seeded with initial test data (Genres and Authors)
+**Objective**: Verify database can be seeded with initial test data (Genres, Authors, Books, Customers, Stocks)
 
 **Pre-conditions**:
 - Database is clean (TC-001 completed)
-- User has INSERT permissions on Genres and Authors tables
+- User has INSERT permissions on all tables
 
 **Test Steps**:
-1. Run seeding process (automatic during test execution)
-2. Verify 1 default genre is inserted ("General")
+1. Run seeding process (automatic during test execution unless --no-seed specified)
+2. Verify 2 genres are present (ID=10: "General", ID=11: "Fiction")
 3. Verify 20 author records are inserted with complete biographical data
-4. Verify 20 customer records are inserted with registration details
-5. Verify stocks are created (3 copies per book when books exist)
+4. Verify 20 books are created with FK to authors and GenreId=10
+5. Verify 20 customer records are inserted with registration details
+6. Verify 30 stocks are created (linked to books)
 
 **Expected Results**:
-- Genres table: 1 record
+- Genres table: 2 records (General, Fiction) with IDs 10 and 11
 - Authors table: 20 records with complete data (FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
+- Books table: 20 records with valid AuthorId and GenreId=10
 - Customers table: 20 records with unique emails and identity cards
-- Stocks table: ~30 records when books are seeded
+- Stocks table: 30 records linked to books
 - All GUIDs properly generated
 - No duplicate records
 - All foreign key relationships valid
 
 **Success Criteria**:
 -   All tables seeded successfully
--   Foreign keys properly linked
+-   Foreign keys properly linked (Books→Authors, Books→Genres, Stocks→Books)
 -   No constraint violations
+-   Genre IDs are 10 and 11 (not 1)
 
 ---
 
@@ -726,9 +772,542 @@ Focus: Stock availability tracking
 
 ---
 
+## JMeter Test Cases
+
+### TC-015: JMeter Basic Execution Test
+
+**Objective**: Verify JMeter test plan executes successfully with 50 threads per group
+
+**Pre-conditions**:
+- JMeter installed and in PATH (jmeter.bat for Windows)
+- SQL Server JDBC driver in JMeter lib folder (mssql-jdbc-12.6.1.jre11.jar)
+- Database is accessible
+- Database is seeded with test data
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py --env target --no-profiling`
+2. Verify JMeter starts without errors
+3. Monitor console for test progress
+4. Wait for 10-minute test completion
+5. Review generated files in jmeter_results/ directory
+
+**Expected Results**:
+- JMeter test runs for 600 seconds (10 minutes)
+- 50 threads per group execute operations in parallel
+- HTML report generated successfully
+- No JDBC connection errors
+- Summary statistics displayed
+
+**Success Criteria**:
+-   JMeter executes without errors
+-   All output files created (JTL, HTML report, log)
+-   >95% success rate in summary
+-   Test runs for full 10 minutes
+
+---
+
+### TC-016: JMeter Test with System Profiling
+
+**Objective**: Validate system performance monitoring during JMeter test execution
+
+**Test Configuration**:
+```
+Tool: JMeter
+Profiling: Enabled (Windows typeperf)
+Duration: 600 seconds
+Thread Groups: 6 (Authors, Books, Customers, Stocks, Rentals, Genres)
+Threads per Group: 50
+```
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py --env target`
+2. Verify typeperf starts monitoring system metrics
+3. Wait for 10-minute test completion
+4. Verify performance data collection
+5. Check performance graph generation
+
+**Expected Results**:
+- Performance monitoring starts before JMeter test
+- Metrics collected every 1 second (CPU, Memory, Disk I/O, Network)
+- Monitoring stops after test completion
+- CSV file cleaned and processed (PDH headers removed)
+- 4 performance graphs generated as PNG file
+
+**Success Criteria**:
+-   Performance data captured successfully for full test duration
+-   Graphs generated without errors
+-   All 4 metrics visible in 2x2 subplot layout
+-   Clean CSV file created without PDH headers
+-   Graphs show correlation with test load
+
+---
+
+### TC-017: JMeter Authors Thread Group - Full CRUD Performance
+
+**Objective**: Validate Authors table full CRUD operations via JDBC (25% of total load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds  
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected):
+- SELECT All (TOP 50)
+- SELECT by ID
+- COUNT
+- INSERT (with NEWID, random data)
+- UPDATE (Bio and Email)
+- Create-Delete Transaction (INSERT followed by immediate DELETE)
+```
+
+**Test Steps**:
+1. Review JMeter test plan Authors Thread Group
+2. Execute JMeter test
+3. Analyze HTML report for Authors operations
+4. Check JTL file for individual request times
+5. Verify data integrity after test
+6. Confirm test records properly created and deleted
+
+**Expected Results**:
+- All Authors operations complete successfully
+- SELECT queries fastest (<50ms average)
+- INSERT creates records with unique AuthorId (GUID)
+- UPDATE modifies only test records (FirstName LIKE 'TestAuthor%')
+- Create-Delete transactions atomic (INSERT+DELETE as one unit)
+- DELETE removes only test records (FirstName LIKE 'DeleteMe%')
+- No orphaned records after test
+
+**Success Criteria**:
+-   >98% success rate for Authors operations
+-   Average response time < 100ms
+-   No FK constraint violations
+-   Create-Delete pattern works correctly
+-   Only test records affected by INSERT/UPDATE/DELETE
+
+---
+
+### TC-018: JMeter Books Thread Group - Full CRUD Performance
+
+**Objective**: Validate Books table full CRUD operations via JDBC (35% of total load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected):
+- SELECT All (TOP 100)
+- SELECT by ID
+- SELECT with JOIN (Books + Authors)
+- COUNT
+- INSERT (with random AuthorId, Year, Price, Rating, GenreId=10)
+- UPDATE (Price and Rating)
+- Create-Delete Transaction (INSERT followed by immediate DELETE)
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Focus on Books Thread Group results
+3. Verify FK constraint to Authors works (SELECT TOP 1 ID FROM Authors ORDER BY NEWID())
+4. Verify GenreId=10 is used (valid Genre FK)
+5. Check UPDATE operations affect only test books (Title LIKE 'Test Book%')
+6. Validate DELETE only removes test books (Title LIKE 'DeleteMe%')
+
+**Expected Results**:
+- All Books operations complete successfully
+- SELECT queries fastest (<50ms average)
+- JOIN queries show Authors data correctly
+- INSERT respects FK constraints (valid AuthorId, GenreId=10)
+- No FK constraint violations for GenreId (10 exists in Genres table)
+- UPDATE modifies only test records
+- Create-Delete transactions atomic
+- DELETE removes only test records
+
+**Success Criteria**:
+-   >98% success rate for Books operations
+-   Average response time < 120ms
+-   No FK constraint errors for AuthorId or GenreId
+-   JOIN queries execute successfully
+-   No orphaned records after test
+
+---
+
+### TC-019: JMeter Customers Thread Group - Read-Only Performance
+
+**Objective**: Test Customers table read operations via JDBC (20% of load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected, read-only):
+- SELECT All (TOP 50, ordered by RegistrationDate DESC)
+- SELECT by ID
+- SELECT by Email (LIKE '%test%')
+- COUNT
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Focus on Customers Thread Group results
+3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
+4. Analyze SELECT by Email LIKE pattern performance
+5. Confirm COUNT operations return accurate results
+
+**Expected Results**:
+- All Customer operations complete successfully
+- Only SELECT and COUNT queries executed
+- Email LIKE searches work correctly with wildcards
+- Fast response times (read-only operations)
+- No data modifications
+
+**Success Criteria**:
+-   100% success rate for Customer read operations
+-   Average response time < 50ms
+-   No INSERT/UPDATE/DELETE operations executed
+-   Database data unchanged after test
+
+---
+
+### TC-020: JMeter Stocks Thread Group - Read-Only Performance
+
+**Objective**: Test Stocks table read operations via JDBC (10% of load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected, read-only):
+- SELECT All (TOP 100)
+- SELECT Available only (WHERE IsAvailable=1)
+- SELECT by BookId (FK lookup)
+- COUNT
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Focus on Stocks Thread Group results
+3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
+4. Analyze availability filtering performance (IsAvailable=1)
+5. Verify BookId FK lookups work correctly
+
+**Expected Results**:
+- All Stock operations complete successfully
+- Only SELECT and COUNT queries executed
+- IsAvailable filtering returns correct results
+- BookId FK references resolve properly
+- Fast response times (read-only operations)
+
+**Success Criteria**:
+-   100% success rate for Stock read operations
+-   Average response time < 50ms
+-   No INSERT/UPDATE/DELETE operations executed
+-   Database data unchanged after test
+
+---
+
+### TC-021: JMeter Rentals Thread Group - Read-Only Performance
+
+**Objective**: Test Rentals table read operations via JDBC (5% of load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected, read-only):
+- SELECT All
+- SELECT Active rentals only (WHERE ReturnedDate IS NULL)
+- COUNT
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Focus on Rentals Thread Group results
+3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
+4. Analyze Active rentals filtering performance
+5. Confirm COUNT operations return accurate results
+
+**Expected Results**:
+- All Rental operations complete successfully
+- Only SELECT and COUNT queries executed
+- Active rental filtering works correctly
+- Fast response times (read-only operations)
+- No data modifications
+
+**Success Criteria**:
+-   100% success rate for Rental read operations
+-   Average response time < 50ms
+-   No INSERT/UPDATE/DELETE operations executed
+-   Database data unchanged after test
+
+---
+
+### TC-022: JMeter Genres Thread Group - Read-Only Performance
+
+**Objective**: Test Genres table read operations via JDBC (5% of load)
+
+**Test Configuration**:
+```
+Threads: 50
+Duration: 600 seconds
+Ramp-up: 10 seconds
+Constant Timer: 2000ms
+Operation Mix (randomly selected, read-only):
+- SELECT All
+- SELECT by ID (Genre 10 or 11)
+- COUNT
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Focus on Genres Thread Group results
+3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
+4. Confirm only Genre IDs 10 and 11 exist
+5. Analyze simple lookup performance
+
+**Expected Results**:
+- All Genre operations complete successfully
+- Only SELECT and COUNT queries executed
+- SELECT by ID returns correct Genre names (10='General', 11='Fiction')
+- Fast response times (read-only operations)
+- No data modifications
+
+**Success Criteria**:
+-   100% success rate for Genre read operations
+-   Average response time < 50ms
+-   No INSERT/UPDATE/DELETE operations executed
+-   Database data unchanged after test
+
+---
+
+### TC-023: Create-Delete Transaction Pattern Validation
+
+**Objective**: Verify atomic Create-Delete transactions leave no orphaned records
+
+**Test Configuration**:
+```
+Authors Thread Group (25% load):
+- Transaction Controller: "Create and Delete Author"
+  - INSERT Author with FirstName='DeleteMe${__UUID}'
+  - DELETE Author WHERE FirstName LIKE 'DeleteMe%'
+
+Books Thread Group (35% load):
+- Transaction Controller: "Create and Delete Book"
+  - INSERT Book with Title='DeleteMe${__UUID}', GenreId=10
+  - DELETE Book WHERE Title LIKE 'DeleteMe%'
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Monitor Create-Delete transactions in results
+3. After test completion, query database:
+   - `SELECT * FROM Authors WHERE FirstName LIKE 'DeleteMe%'`
+   - `SELECT * FROM Books WHERE Title LIKE 'DeleteMe%'`
+4. Verify no orphaned "DeleteMe" records exist
+5. Check transaction success rates
+
+**Expected Results**:
+- Create-Delete transactions complete atomically
+- No "DeleteMe" records remain in database
+- Transaction success rate >95%
+- If transaction fails, both operations roll back
+- No partial transactions (Create without Delete)
+
+**Success Criteria**:
+-   Zero orphaned "DeleteMe" records after test
+-   Transaction success rate >95%
+-   Average transaction time < 200ms
+-   No partial transaction artifacts
+
+---
+
+### TC-024: Foreign Key Constraint Validation
+
+**Objective**: Verify FK constraints are properly enforced in Books operations
+
+**Test Configuration**:
+```
+Books Thread Group operations:
+- INSERT Book with:
+  - GenreId=10 (valid FK to Genres table)
+  - AuthorId from SELECT TOP 1 (valid FK to Authors table)
+- SELECT with JOIN to verify FK relationships:
+  - Books → Authors
+  - Books → Genres
+```
+
+**Test Steps**:
+1. Execute JMeter test
+2. Monitor Books INSERT operations
+3. Verify all INSERTs use GenreId=10 (not 1)
+4. Verify AuthorId is retrieved from existing Authors
+5. Check JOIN queries return correct related data
+6. Confirm no FK constraint violations
+
+**Expected Results**:
+- All Books INSERTs succeed with GenreId=10
+- No "FK_dbo.Books_dbo.Genres_GenreId" constraint errors
+- AuthorId references valid Authors records
+- JOIN queries return matching Authors and Genres
+- No orphaned Books with invalid FKs
+
+**Success Criteria**:
+-   100% success rate for Books INSERT (no FK errors)
+-   All Books have GenreId=10 or 11 (valid Genres)
+-   All Books have valid AuthorId references
+-   JOIN queries return correct related data
+-   No FK constraint violation errors in results
+
+---
+
+### TC-025: JMeter HTML Report Validation
+
+**Objective**: Verify JMeter HTML report is generated correctly with all required sections
+
+**Test Steps**:
+1. Execute JMeter test
+2. Open report_*/index.html in browser
+3. Verify all sections present:
+   - Dashboard (summary statistics)
+   - Charts (Response Times Over Time, Throughput)
+   - Statistics table
+   - Errors (if any)
+   - Top 5 Errors by Sampler
+4. Check graphs are populated with data
+5. Verify statistics accuracy
+
+**Expected Results**:
+- HTML report opens in browser
+- All dashboard widgets show data
+- Charts display time-series graphs
+- Statistics table has all samplers listed
+- Error section shows details (if errors occurred)
+- Report is self-contained (can be shared)
+
+**Success Criteria**:
+-   All report sections present and functional
+-   Graphs display correctly
+-   Statistics match JTL file
+-   Report can be archived and shared
+
+---
+
+### TC-026: JMeter Performance Graph Validation
+
+**Objective**: Verify system performance graphs are generated correctly (Windows only)
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py --env target`
+2. Wait for completion (10 minutes)
+3. Locate performance_graphs_*.png file in jmeter_results/
+4. Open image and verify:
+   - 2×2 subplot layout
+   - CPU Usage graph (top-left) with average line
+   - Memory Usage graph (top-right) with average line
+   - Disk I/O graph (bottom-left) with Read/Write lines
+   - Network Activity graph (bottom-right) in MB/s
+5. Check data is realistic and not all zeros
+
+**Expected Results**:
+- PNG file created in jmeter_results/
+- All 4 graphs visible and properly labeled
+- CPU shows percentage (0-100%)
+- Memory shows percentage
+- Disk shows operations/sec
+- Network shows MB/s
+- Average lines displayed on CPU and Memory
+- Graphs have timestamps on X-axis
+
+**Success Criteria**:
+-   PNG file generated successfully
+-   All 4 graphs present with data
+-   Graphs are readable and properly formatted
+-   File size reasonable (< 500KB)
+
+---
+
+### TC-027: JMeter Test Without Seeding
+
+**Objective**: Test JMeter execution without re-seeding database (reuse existing data)
+
+**Test Steps**:
+1. Run initial test with seeding
+2. Execute: `python run_and_monitor_db_test.py --env target --no-seed`
+3. Verify test uses existing data
+4. Check no seeding messages appear
+5. Confirm test completes successfully
+
+**Expected Results**:
+- Seeding step skipped
+- Test proceeds directly to JMeter execution
+- Existing data used for operations
+- Test completes faster (no seeding overhead)
+- No errors from missing data
+
+**Success Criteria**:
+-   Test completes successfully
+-   Seeding step skipped
+-   Existing data sufficient for all operations
+-   Execution time reduced
+
+---
+
+### TC-028: JMeter Test Without Performance Profiling
+
+**Objective**: Test JMeter execution without system profiling (faster execution)
+
+**Test Steps**:
+1. Execute: `python run_and_monitor_db_test.py --env target --no-profiling`
+2. Verify test runs without typeperf
+3. Confirm no performance_graphs_*.png generated
+4. Check test completes faster
+
+**Expected Results**:
+- System profiling skipped
+- No typeperf process started
+- No performance graphs generated
+- Test completes successfully
+- Faster execution time
+
+**Success Criteria**:
+-   Test completes successfully
+-   Profiling step skipped
+-   No performance graphs in output
+-   JMeter results still generated
+
+---
+
 ## Performance Benchmarks
 
-### Expected Response Times (Baseline)
+### JMeter Testing - Expected Performance (50 threads per group, 10 minutes)
+
+| Thread Group | Load % | Operations | Avg Response | Success Rate |
+|--------------|--------|-----------|--------------|--------------|
+| Authors (Full CRUD) | 25% | ~7,500 | <80ms | >98% |
+| Books (Full CRUD) | 35% | ~10,500 | <100ms | >98% |
+| Customers (Read-Only) | 20% | ~6,000 | <50ms | 100% |
+| Stocks (Read-Only) | 10% | ~3,000 | <50ms | 100% |
+| Rentals (Read-Only) | 5% | ~1,500 | <50ms | 100% |
+| Genres (Read-Only) | 5% | ~1,500 | <50ms | 100% |
+| **Total** | **100%** | **~30,000** | **<70ms** | **>98%** |
+
+**Notes**:
+- 50 threads per group with 2-second pacing = ~25 operations/min per thread
+- 600 seconds duration = 10 minutes
+- Approximate operation counts: 50 threads × 10 mins / 2 sec pacing × load percentage
+- Authors and Books include Create-Delete transactions reducing effective operations
+- Read-only operations (Customers, Stocks, Rentals, Genres) have 100% success rates
+- CRUD operations (Authors, Books) may have <2% failures due to concurrency
+
+### Operation Response Time Benchmarks
 
 | Operation Type | Average | P95 | P99 | Max Acceptable |
 |---------------|---------|-----|-----|----------------|
@@ -739,6 +1318,17 @@ Focus: Stock availability tracking
 | INSERT | <50ms | <100ms | <150ms | 200ms |
 | UPDATE | <60ms | <120ms | <180ms | 250ms |
 | DELETE | <40ms | <80ms | <120ms | 150ms |
+| Create-Delete Transaction | <150ms | <250ms | <350ms | 450ms |
+
+### System Performance Thresholds (JMeter Profiling)
+
+| Metric | Normal | Warning | Critical |
+|--------|--------|---------|----------|
+| CPU Usage | <60% | 60-85% | >85% |
+| Memory Committed | <70% | 70-85% | >85% |
+| Disk Reads/sec | <100 | 100-200 | >200 |
+| Disk Writes/sec | <50 | 50-100 | >100 |
+| Network MB/sec | <10 | 10-50 | >50 |
 
 ### Resource Utilization Thresholds
 
@@ -754,45 +1344,64 @@ Focus: Stock availability tracking
 
 ## Test Execution Checklist
 
-### Before Testing
+### Before Testing (Common)
 - [ ] SQL Server is running (remote server: 10.134.77.68:1433)
 - [ ] Database exists (BookStore-Master)
-- [ ] ODBC Driver 17 or 18 for SQL Server installed
-- [ ] Python 3.6+ installed
-- [ ] pyodbc package installed (`pip install -r requirements.txt`)
-- [ ] Sufficient disk space for results
 - [ ] Network connectivity to remote SQL Server
 - [ ] SQL authentication credentials valid (testuser)
+- [ ] Sufficient disk space for results
+- [ ] Configuration file exists (../db_config.json)
+
+### Before JMeter Testing
+- [ ] Apache JMeter 5.6.3+ installed
+- [ ] JMeter added to system PATH (jmeter.bat accessible)
+- [ ] SQL Server JDBC driver in JMeter lib/ folder (mssql-jdbc-12.6.1.jre11.jar)
+- [ ] JMeter test plan exists (JMeter_DB_Mixed_Operations.jmx)
+- [ ] Windows environment (for performance profiling)
+- [ ] Python 3.7+ installed
+- [ ] pyodbc package installed (`pip install -r requirements.txt`)
 
 ### During Testing
 - [ ] Monitor console output for errors
-- [ ] Check CPU/Memory on server
+- [ ] Check CPU/Memory on server (if monitoring)
 - [ ] Observe response time trends
 - [ ] Note any warnings or failures
+- [ ] Watch for JDBC connection errors (JMeter)
+- [ ] Verify typeperf is running (JMeter with profiling)
 
 ### After Testing
-- [ ] Review load_test CSV file
+- [ ] Review JTL file (results_*.jtl)
+- [ ] Open HTML report (report_*/index.html)
 - [ ] Analyze summary statistics
-- [ ] Check monitoring metrics
+- [ ] Check profiling data (performance_graphs_*.png)
+- [ ] Review performance graphs (if generated)
 - [ ] Compare against benchmarks
 - [ ] Document any anomalies
-- [ ] Clean up test data (optional)
+- [ ] Clean up test data (optional with --cleanup)
 
 ---
 
 ## Test Data Summary
 
 ### What Gets Created
-- **Genres**: 1 default genre ("General") - created on first run
-- **Authors**: 20 records with unique GUIDs (persistent across tests)
-  - Includes FirstName, LastName, and AuthorId (GUID)
-- **Books**: Variable count based on test configuration
-  - Each INSERT operation adds 1 book with Title, Year, Price, Description, GenreId, IssueDate, Rating
-  - Each DELETE operation removes 1 test book
+- **Genres**: 2 genres (ID=10: "General", ID=11: "Fiction") - created on first run
+- **Authors**: 20 seeded records + test records during execution
+  - Seeded: FirstName format "FirstName{1-20}", persistent across tests
+  - Test records: FirstName format "TestAuthor${UUID}" (CRUD operations)
+  - Delete records: FirstName format "DeleteMe${UUID}" (Create-Delete transactions)
+- **Books**: 20 seeded records + test records during execution
+  - Seeded: 20 books with valid AuthorId and GenreId=10
+  - Test records: Title format "Test Book ${UUID}", GenreId=10 (CRUD operations)
+  - Delete records: Title format "DeleteMe${UUID}", GenreId=10 (Create-Delete transactions)
+- **Customers**: 20 seeded records (persistent across tests)
+  - Format: FirstName "Customer{1-20}", LastName "Test{1-20}"
+- **Stocks**: 30 seeded records (persistent across tests)
+  - 1-2 copies per Book with IsAvailable=1
 
 ### What Gets Cleaned Up
-- Running with `--cleanup` removes ALL data from Books, Authors, and Genres tables
-- DELETE operations only remove "Performance Test Book" records
+- Running with `--cleanup` removes ALL data from all tables (FK-safe order)
+- DELETE operations only remove "Performance Test Book" and "TestBook" records
+- Create-Delete transactions remove "DeleteMe%" records atomically
 - Regular cleanup recommended after major tests
 
 ---
@@ -802,9 +1411,9 @@ Focus: Stock availability tracking
 | Criteria | Target | Minimum Acceptable |
 |----------|--------|-------------------|
 | Success Rate | >99% | >95% |
-| Average Response Time | <100ms | <200ms |
-| P95 Response Time | <200ms | <500ms |
-| Throughput | >50 ops/sec | >20 ops/sec |
+| Average Response Time | <70ms | <150ms |
+| P95 Response Time | <150ms | <300ms |
+| Throughput | >50 ops/sec | >30 ops/sec |
 | CPU Usage (avg) | <60% | <80% |
 | Memory Usage (avg) | <3GB | <5GB |
 | Deadlock Count | 0 | <5 |
@@ -837,7 +1446,22 @@ Focus: Stock availability tracking
 - Long-running transactions
 **Solution**: Reduce UPDATE concurrency, implement retry logic
 
-### Issue 4: Memory Growth
+### Issue 4: Foreign Key Constraint Errors
+**Symptoms**: "FK_dbo.Books_dbo.Genres_GenreId constraint violated"
+**Possible Causes**:
+- Using invalid GenreId (e.g., GenreId=1 doesn't exist)
+- Books INSERT using GenreId other than 10 or 11
+**Solution**: Verify GenreId=10 or 11 in all Books INSERT operations
+
+### Issue 5: JMeter Not Found in PATH
+**Symptoms**: "JMeter not found in PATH"
+**Possible Causes**:
+- JMeter not installed
+- JMeter bin folder not in PATH
+- Windows requires jmeter.bat (not jmeter)
+**Solution**: Add JMeter bin folder to PATH, verify jmeter.bat executable
+
+### Issue 6: Memory Growth
 **Symptoms**: Memory usage continuously increases
 **Possible Causes**:
 - Connection leaks
@@ -850,7 +1474,7 @@ Focus: Stock availability tracking
 ## Reporting Results
 
 ### Key Metrics to Report
-1. **Test Configuration** (connections, operations, duration)
+1. **Test Configuration** (50 threads per group, 10 minutes, 2-second pacing)
 2. **Success Rate** (%)
 3. **Response Times** (avg, median, P95, P99)
 4. **Throughput** (operations/second)
@@ -861,9 +1485,9 @@ Focus: Stock availability tracking
 ### Report Template
 ```
 Test Date: [DATE]
-Configuration: [X] connections, [Y] operations, [Z] test type
-Duration: [N] seconds
-Total Operations: [TOTAL]
+Configuration: 50 threads per group, 10 minutes, 2-second pacing
+Duration: 600 seconds
+Total Operations: ~30,000
 
 Results:
 - Success Rate: [%]
@@ -871,10 +1495,19 @@ Results:
 - P95 Response Time: [Y]ms
 - Throughput: [Z] ops/sec
 
+Thread Group Performance:
+- Authors (Full CRUD): [%] success, [X]ms avg
+- Books (Full CRUD): [%] success, [X]ms avg
+- Customers (Read-Only): [%] success, [X]ms avg
+- Stocks (Read-Only): [%] success, [X]ms avg
+- Rentals (Read-Only): [%] success, [X]ms avg
+- Genres (Read-Only): [%] success, [X]ms avg
+
 Resource Usage:
 - CPU: [X]% avg, [Y]% max
-- Memory: [X]GB avg, [Y]GB max
-- Connections: [X] avg, [Y] max
+- Memory: [X]% avg, [Y]% max
+- Disk I/O: [X] reads/sec, [Y] writes/sec
+- Network: [X] MB/sec
 
 Observations:
 [Key findings]
@@ -887,53 +1520,91 @@ Recommendations:
 
 ## Conclusion
 
-This test suite provides comprehensive coverage of database performance testing scenarios across **6 main business tables**. By executing these test cases, you can:
+This comprehensive test suite provides JMeter-based performance testing coverage across **6 main business tables** using JDBC. By executing these test cases, you can:
 
-- Validate database performance under various loads across all tables
-- Identify bottlenecks and optimization opportunities in multi-table scenarios
-- Verify foreign key constraint performance
-- Test referential integrity under concurrent load
-- Assess scalability with complex table relationships
-- Monitor cross-table transaction behavior
+- **Validate database performance** under high concurrent load (50 threads per table)
+- **Benchmark with industry standards** using JMeter's JDBC-based testing
+- **Profile system-level performance** (CPU, Memory, Disk, Network) on Windows
+- **Generate stakeholder reports** with JMeter's HTML reports and performance graphs
+- **Identify bottlenecks** in multi-table scenarios
+- **Verify foreign key constraint performance** under concurrent load with correct Genre IDs
+- **Test referential integrity** with complex table relationships
+- **Assess scalability** with configurable thread counts and durations
+- **Monitor transaction behavior** with Create-Delete atomic patterns
+- **Validate data integrity** with no orphaned test records
 
 ### Test Coverage Summary
+- **Authors**: Full CRUD with Create-Delete transactions (25% load)
+- **Books**: Full CRUD with FK validation (GenreId=10) and Create-Delete transactions (35% load)
+- **Customers**: Read-Only operations (SELECT, COUNT) (20% load)
+- **Stocks**: Read-Only operations with availability filtering (10% load)
+- **Rentals**: Read-Only operations with active rental filtering (5% load)
+- **Genres**: Read-Only operations (5% load)
+- **Total**: ~30,000 operations over 10 minutes with 50 threads per group
 
 | Table | Operations Tested | FK Relationships | Test Cases |
 |-------|------------------|------------------|------------|
-| **Authors** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003, TC-012e |
-| **Books** | SELECT, INSERT, UPDATE, DELETE | Child of Authors/Genres, Parent to Stocks | TC-003, TC-005-008, TC-012a |
-| **Genres** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003 |
-| **Customers** | SELECT, INSERT, UPDATE, DELETE | Parent to Rentals | TC-003, TC-012a, TC-012b |
-| **Rentals** | SELECT, INSERT, UPDATE | Child of Customers/Stocks | TC-003, TC-012a, TC-012c, TC-012e |
-| **Stocks** | SELECT, INSERT, UPDATE | Child of Books, Parent to Rentals | TC-003, TC-012a, TC-012d, TC-012e |
+| **Authors** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003, TC-012e, TC-017 |
+| **Books** | SELECT, INSERT, UPDATE, DELETE | Child of Authors/Genres, Parent to Stocks | TC-003, TC-005-008, TC-012a, TC-017 |
+| **Genres** | INSERT (seed), SELECT | Parent to Books | TC-002, TC-003, TC-017 |
+| **Customers** | SELECT, INSERT, UPDATE, DELETE | Parent to Rentals | TC-003, TC-012a, TC-012b, TC-018 |
+| **Rentals** | SELECT, INSERT, UPDATE | Child of Customers/Stocks | TC-003, TC-012a, TC-012c, TC-012e, TC-019 |
+| **Stocks** | SELECT, INSERT, UPDATE | Child of Books, Parent to Rentals | TC-003, TC-012a, TC-012d, TC-012e, TC-020 |
+
+### Testing Mode Comparison
+
+| Aspect | Python Testing | JMeter Testing |
+|--------|---------------|----------------|
+| **Protocol** | pyodbc (native ODBC) | JDBC |
+| **Flexibility** | High (configurable) | Fixed (530 ops) |
+| **Database Metrics** | Yes (DMVs) | No |
+| **System Metrics** | No | Yes (Windows typeperf) |
+| **HTML Reports** | No | Yes (charts, graphs) |
+| **Use Cases** | Custom load patterns, rapid iteration | Standardized benchmarking, reporting |
+| **Test Cases** | TC-001 to TC-014 | TC-015 to TC-024 |
 
 ### Operation Distribution in Mixed Tests
 
-When running Mixed test type, operations are weighted as follows:
+**Python Testing (Configurable)**:
 - **Books**: 40% (primary table with full CRUD)
 - **Customers**: 25% (active user management)
 - **Rentals**: 20% (transaction processing)
 - **Stocks**: 15% (inventory management)
 
+**JMeter Testing (Fixed - 530 Operations)**:
+- **Books Thread Group**: 200 operations (40%)
+- **Customers Thread Group**: 150 operations (25%)
+- **Rentals Thread Group**: 100 operations (20%)
+- **Stocks Thread Group**: 80 operations (15%)
+
 ### Key Performance Indicators
 
-**Target Metrics**:
-- SELECT operations: < 10ms average
+**Python Testing Targets**:
+- SELECT operations: < 30ms average
 - INSERT operations: < 50ms average  
-- UPDATE operations: < 75ms average
-- DELETE operations: < 100ms average
-- Overall success rate: > 85% under normal load
-- FK constraint validation: 100% enforcement
+- UPDATE operations: < 60ms average
+- DELETE operations: < 40ms average
+- Overall success rate: > 95% under normal load
+- Database metrics: CPU < 50%, Memory stable
 
-**Resource Thresholds**:
+**JMeter Testing Targets**:
+- Total duration: 60-90 seconds (530 operations)
+- Average response time: < 90ms
+- Overall success rate: > 90%
+- System metrics: CPU < 60%, Memory < 70% committed
+- HTML report: All sections populated with data
+
+**Resource Thresholds (Both Modes)**:
 - CPU utilization: < 80% sustained
 - Memory usage: Stable, no leaks
 - Connection count: < configured max
 - Lock waits: < 5% of operations
 - Deadlocks: 0 (zero tolerance)
+- FK constraint validation: 100% enforcement
 
 ### Typical Test Workflow
 
+#### Python Load Testing Workflow
 ```bash
 # 1. Clean database
 python run_and_monitor_db_test.py --env target --cleanup
@@ -947,12 +1618,46 @@ python run_and_monitor_db_test.py --env target -c 20 -o 100 -t Mixed -d 120
 # - Analyze database_test_results/metrics_*.csv
 
 # 4. Run specific table tests if needed
+python run_and_monitor_db_test.py --env target -c 10 -o 50 -t Books
+```
+
+#### JMeter Testing Workflow
+```bash
+# 1. Clean database
+python run_and_monitor_db_test.py --env target --cleanup
+
+# 2. Run JMeter test with profiling (Windows)
+python run_and_monitor_db_test.py --tool jmeter --env target
+
+# 3. Review results
+# - Open jmeter_results/report_*/index.html (HTML report)
+# - Check jmeter_results/performance_graphs_*.png (system metrics)
+# - Review jmeter_results/results_*.jtl (raw data)
+
+# 4. Run quick test without profiling
+python run_and_monitor_db_test.py --tool jmeter --env target --no-profiling
+```
+
+#### Comprehensive Testing (Both Tools)
+```bash
+# 1. Cleanup
+python run_and_monitor_db_test.py --env target --cleanup
+
+# 2. Python baseline test
 python run_and_monitor_db_test.py --env target -c 10 -o 50 -t Mixed
+
+# 3. JMeter standardized test
+python run_and_monitor_db_test.py --tool jmeter --env target
+
+# 4. Compare results from both tools
+# - Python: Database-level metrics (DMVs)
+# - JMeter: System-level metrics (CPU, Memory, Disk, Network)
 ```
 
 ### Version History
 - **v1.0** (Initial): Basic Books testing only
-- **v2.0** (Current): Comprehensive 6-table testing with FK validation, multi-table operations, and referential integrity testing
+- **v2.0**: Comprehensive 6-table testing with FK validation, multi-table operations, and referential integrity testing
+- **v3.0** (Current): Consolidated tool with dual testing modes (Python + JMeter), system performance profiling, and HTML reporting
 
 ---
 
