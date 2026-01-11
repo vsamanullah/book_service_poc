@@ -59,7 +59,7 @@ def build_connection_string(env_config: dict) -> str:
     )
 
 
-def get_connection_from_config(env_name: str, config_path: str = "../../db_config.json") -> str:
+def get_connection_from_config(env_name: str, config_path: str = "../db_config.json") -> str:
     """Get connection string for specified environment from config file"""
     config = load_config(config_path)
     
@@ -636,20 +636,20 @@ Examples:
     )
     
     parser.add_argument('--count', type=int, default=10,
-                       help='Number of records to create per table (default: 10)')
+                       help='Number of records to create per table (default: 10). Use 0 to only delete all records.')
     parser.add_argument('--env', type=str, default='target',
                        choices=['source', 'target', 'local'],
                        help='Environment to populate (default: target)')
-    parser.add_argument('--config', type=str, default='../../db_config.json',
-                       help='Path to config file (default: ../../db_config.json)')
+    parser.add_argument('--config', type=str, default='../db_config.json',
+                       help='Path to config file (default: ../db_config.json)')
     
     args = parser.parse_args()
     
     # Validate record count
     record_count = args.count
-    if record_count <= 0:
+    if record_count < 0:
         print(f"✗ Error: Invalid record count '{record_count}'")
-        print("  Record count must be a positive integer")
+        print("  Record count must be 0 or a positive integer (use 0 to delete all records only)")
         sys.exit(1)
     
     # Load configuration
@@ -687,36 +687,56 @@ Examples:
     
     # Info about what will happen
     print("\n" + "="*70)
-    print("⚠ WARNING: This will DELETE ALL records and populate with new data")
+    if record_count == 0:
+        print("⚠ WARNING: This will DELETE ALL records (NO new data will be populated)")
+    else:
+        print("⚠ WARNING: This will DELETE ALL records and populate with new data")
     print("="*70)
-    print(f"Will populate with {record_count} new test records per table")
-    print("(Authors: {}, Books: {}, Customers: {}, Stocks: ~{}, Rentals: ~{})".format(
-        record_count, record_count * 2, record_count, record_count * 6, record_count * 3))
+    if record_count > 0:
+        print(f"Will populate with {record_count} new test records per table")
+        print("(Authors: {}, Books: {}, Customers: {}, Stocks: ~{}, Rentals: ~{})".format(
+            record_count, record_count * 2, record_count, record_count * 6, record_count * 3))
+    else:
+        print("All records will be DELETED. No new data will be created.")
     print("="*70 + "\n")
     
     try:
         # Delete all records
         populator.delete_all_records()
         
-        # Populate with new data
-        populator.populate_database()
-        
-        # Show final summary
-        populator.print_summary()
-        
-        print("\n" + "="*70)
-        print("✓ TEST DATA POPULATED SUCCESSFULLY")
-        print("="*70)
-        print(f"\n  Summary:")
-        print(f"    • Environment: {args.env.upper()}")
-        print(f"    • Deleted all existing records")
-        print(f"    • Created {record_count} authors")
-        print(f"    • Created {record_count * 2} books")
-        print(f"    • Created {record_count} customers")
-        print(f"    • Created ~{record_count * 6} stocks (3 copies per book)")
-        print(f"    • Created ~{record_count * 3} rentals")
-        print(f"    • All records have unique timestamp-based identifiers")
-        print("="*70)
+        if record_count > 0:
+            # Populate with new data
+            populator.populate_database()
+            
+            # Show final summary
+            populator.print_summary()
+            
+            print("\n" + "="*70)
+            print("✓ TEST DATA POPULATED SUCCESSFULLY")
+            print("="*70)
+            print(f"\n  Summary:")
+            print(f"    • Environment: {args.env.upper()}")
+            print(f"    • Deleted all existing records")
+            print(f"    • Created {record_count} authors")
+            print(f"    • Created {record_count * 2} books")
+            print(f"    • Created {record_count} customers")
+            print(f"    • Created ~{record_count * 6} stocks (3 copies per book)")
+            print(f"    • Created ~{record_count * 3} rentals")
+            print(f"    • All records have unique timestamp-based identifiers")
+            print("="*70)
+        else:
+            # Show final summary after deletion only
+            populator.print_summary()
+            
+            print("\n" + "="*70)
+            print("✓ ALL RECORDS DELETED SUCCESSFULLY")
+            print("="*70)
+            print(f"\n  Summary:")
+            print(f"    • Environment: {args.env.upper()}")
+            print(f"    • All existing records have been deleted")
+            print(f"    • No new data was populated")
+            print(f"    • Database is now empty")
+            print("="*70)
         
         sys.exit(0)
         

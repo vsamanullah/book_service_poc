@@ -6,7 +6,7 @@ import json
 import argparse
 from pathlib import Path
 
-def load_config(config_path="../../db_config.json", env_name="target"):
+def load_config(config_path="../db_config.json", env_name="target"):
     """Load database configuration from JSON file"""
     with open(config_path, 'r') as f:
         config = json.load(f)
@@ -28,7 +28,7 @@ def build_connection_string(env_config):
         f"TrustServerCertificate=yes"
     )
 
-def check_schema(env_name="target", config_path="../../db_config.json"):
+def check_schema(env_name="target", config_path="../db_config.json"):
     """Check database schema structure"""
     try:
         # Load configuration
@@ -84,8 +84,8 @@ if __name__ == "__main__":
     parser.add_argument('--env', type=str, default='target',
                         choices=['source', 'target', 'local'],
                         help='Environment to use (default: target)')
-    parser.add_argument('--config', type=str, default='../../db_config.json',
-                        help='Path to config file (default: ../../db_config.json)')
+    parser.add_argument('--config', type=str, default='../db_config.json',
+                        help='Path to config file (default: ../db_config.json)')
     
     args = parser.parse_args()
     check_schema(args.env, args.config)
