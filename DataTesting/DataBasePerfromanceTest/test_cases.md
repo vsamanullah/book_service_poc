@@ -30,6 +30,9 @@ python run_and_monitor_db_test.py --env target --cleanup
 python run_and_monitor_db_test.py --env target --no-seed
 ```
 
+### Command to be used
+<to be updated>
+
 ### Tables Under Test
 - **Authors** - Author information with full biographical data
 - **Books** - Book catalog with pricing and ratings
@@ -1602,57 +1605,7 @@ This comprehensive test suite provides JMeter-based performance testing coverage
 - Deadlocks: 0 (zero tolerance)
 - FK constraint validation: 100% enforcement
 
-### Typical Test Workflow
 
-#### Python Load Testing Workflow
-```bash
-# 1. Clean database
-python run_and_monitor_db_test.py --env target --cleanup
-
-# 2. Run comprehensive load test
-python run_and_monitor_db_test.py --env target -c 20 -o 100 -t Mixed -d 120
-
-# 3. Review results
-# - Check database_test_results/load_test_*.csv
-# - Review database_test_results/summary_*.txt
-# - Analyze database_test_results/metrics_*.csv
-
-# 4. Run specific table tests if needed
-python run_and_monitor_db_test.py --env target -c 10 -o 50 -t Books
-```
-
-#### JMeter Testing Workflow
-```bash
-# 1. Clean database
-python run_and_monitor_db_test.py --env target --cleanup
-
-# 2. Run JMeter test with profiling (Windows)
-python run_and_monitor_db_test.py --tool jmeter --env target
-
-# 3. Review results
-# - Open jmeter_results/report_*/index.html (HTML report)
-# - Check jmeter_results/performance_graphs_*.png (system metrics)
-# - Review jmeter_results/results_*.jtl (raw data)
-
-# 4. Run quick test without profiling
-python run_and_monitor_db_test.py --tool jmeter --env target --no-profiling
-```
-
-#### Comprehensive Testing (Both Tools)
-```bash
-# 1. Cleanup
-python run_and_monitor_db_test.py --env target --cleanup
-
-# 2. Python baseline test
-python run_and_monitor_db_test.py --env target -c 10 -o 50 -t Mixed
-
-# 3. JMeter standardized test
-python run_and_monitor_db_test.py --tool jmeter --env target
-
-# 4. Compare results from both tools
-# - Python: Database-level metrics (DMVs)
-# - JMeter: System-level metrics (CPU, Memory, Disk, Network)
-```
 
 ### Version History
 - **v1.0** (Initial): Basic Books testing only

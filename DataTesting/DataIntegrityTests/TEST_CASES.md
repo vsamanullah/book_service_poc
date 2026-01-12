@@ -1219,45 +1219,10 @@ Verification:
 ### Full Test Suite Execution
 
 ```bash
-# 1. Setup test environment
-cd BookServiceDataTesting/BookServiceTestDataIntegrity
-
-# 2. Run schema validation
-python check_schema.py > test_results/schema_validation.log
-
-# 3. Test data population (small dataset for speed)
-python populate_test_data.py 25 --env local
-
-# 4. Create baseline
-python create_baseline.py --env local --output test_results/baseline_test.json
-
-# 5. Verify migration (no actual migration, should pass all checks)
-python verify_migration.py --env local --baseline test_results/baseline_test.json
-
-# 6. Review results
-cat verification_*.log
+<to be updated>
 ```
 
-### Smoke Test (Quick Validation)
 
-```bash
-# Quick 10-record test
-python populate_test_data.py 10 --env local
-python create_baseline.py --env local
-python verify_migration.py --env local
-```
-
-### Regression Test (Comprehensive)
-
-```bash
-# Large dataset comprehensive test
-python populate_test_data.py 100 --env source
-python create_baseline.py --env source --output baselines/regression_baseline.json
-# Perform migration
-python verify_migration.py --env target --baseline baselines/regression_baseline.json
-```
-
----
 
 ## Test Results Tracking
 

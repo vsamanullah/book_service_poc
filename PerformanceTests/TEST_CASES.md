@@ -4,7 +4,7 @@
 This document describes the performance test suite for the Book Service RESTful API. The tests validate the performance, scalability, and response times of all CRUD operations for Authors and Books endpoints under various load conditions.
 
 ## Test Environment
-- **Base URL**: `http://localhost:50524`
+- **Base URL**: `http(s)://<ip>:port`
 - **Target APIs**: `/api/Authors` and `/api/Books`
 - **Testing Tool**: Apache JMeter 5.6.2
 - **Profiling Tool**: Custom Python script with system monitoring
@@ -433,22 +433,22 @@ After each test execution:
 ## Success Criteria
 
 ### Functional Requirements
-- ✅ All HTTP status codes match expected values
-- ✅ Response payloads contain valid JSON
-- ✅ Data integrity maintained across operations
-- ✅ Referential integrity preserved (Author-Book relationships)
+- All HTTP status codes match expected values
+- Response payloads contain valid JSON
+- Data integrity maintained across operations
+- Referential integrity preserved (Author-Book relationships)
 
 ### Performance Requirements
-- ✅ Response times within target thresholds
-- ✅ Throughput meets minimum requirements
-- ✅ Error rate < 1% under normal load
-- ✅ System resources remain stable throughout test
+- Response times within target thresholds
+- Throughput meets minimum requirements
+- Error rate < 1% under normal load
+- System resources remain stable throughout test
 
 ### Stability Requirements
-- ✅ No memory leaks detected
-- ✅ No connection pool exhaustion
-- ✅ Graceful degradation under peak load
-- ✅ Recovery after load spike
+- No memory leaks detected
+- No connection pool exhaustion
+- Graceful degradation under peak load
+- Recovery after load spike
 
 ---
 
