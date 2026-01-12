@@ -113,10 +113,26 @@ def load_config(config_file: Path = CONFIG_FILE) -> dict:
         sys.exit(1)
 
 
+def parse_server_config(env_config):
+    """Parse server config which might contain port"""
+    raw_server = env_config.get('server', '')
+    port = env_config.get('port', '1433')
+    
+    # Handle server string with comma (e.g. "host,port")
+    if ',' in raw_server:
+        parts = raw_server.split(',')
+        server_host = parts[0].strip()
+        # If port wasn't explicitly set in config, try to use the one from server string
+        if 'port' not in env_config and len(parts) > 1:
+            port = parts[1].strip()
+    else:
+        server_host = raw_server
+        
+    return server_host, port
+
 def build_connection_string(env_config: dict) -> str:
     """Build ODBC connection string from environment config"""
-    server = env_config.get('server', '')
-    port = env_config.get('port', '1433')
+    server, port = parse_server_config(env_config)
     database = env_config.get('database', '')
     username = env_config.get('username', '')
     password = env_config.get('password', '')
@@ -405,8 +421,29 @@ def run_jmeter_test(env_config, results_dir, timeout=600):
     report_dir = results_dir / f"report_{timestamp}"
     log_file = results_dir / f"jmeter_{timestamp}.log"
     
+    # Parse server and port from config
+    server_host, server_port = parse_server_config(env_config)
+
     # Prepare JMeter command
     jmeter_cmd = 'jmeter.bat' if os.name == 'nt' else 'jmeter'
+    
+    # Build connection properties
+    conn_props = []
+    if env_config.get('encrypt', False):
+        conn_props.append("encrypt=true")
+    else:
+        conn_props.append("encrypt=false")
+        
+    if env_config.get('trust_certificate', False):
+        conn_props.append("trustServerCertificate=true")
+    else:
+         conn_props.append("trustServerCertificate=false")
+         
+    if env_config.get('trusted_connection', False):
+        conn_props.append("integratedSecurity=true")
+        
+    conn_props_str = ";".join(conn_props) + ";"
+    
     cmd = [
         jmeter_cmd,
         '-n',  # Non-GUI mode
@@ -415,11 +452,12 @@ def run_jmeter_test(env_config, results_dir, timeout=600):
         '-e',  # Generate HTML report
         '-o', str(report_dir),
         '-j', str(log_file),
-        f"-JDB_SERVER={env_config['server']}",
-        f"-JDB_PORT={env_config.get('port', '1433')}",
+        f"-JDB_SERVER={server_host}",
+        f"-JDB_PORT={server_port}",
         f"-JDB_NAME={env_config['database']}",
-        f"-JDB_USER={env_config['username']}",
-        f"-JDB_PASSWORD={env_config['password']}"
+        f"-JDB_USER={env_config.get('username') or ''}",
+        f"-JDB_PASSWORD={env_config.get('password') or ''}",
+        f"-JDB_CONN_PROPS={conn_props_str}"
     ]
     
     print(f"  Test Plan: {JMETER_TEST_PLAN}")

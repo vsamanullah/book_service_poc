@@ -8,27 +8,32 @@
         <collectionProp name="Arguments.arguments">
           <elementProp name="DB_SERVER" elementType="Argument">
             <stringProp name="Argument.name">DB_SERVER</stringProp>
-            <stringProp name="Argument.value">10.134.77.68</stringProp>
+            <stringProp name="Argument.value">${__P(DB_SERVER, 10.134.77.68)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DB_PORT" elementType="Argument">
             <stringProp name="Argument.name">DB_PORT</stringProp>
-            <stringProp name="Argument.value">1433</stringProp>
+            <stringProp name="Argument.value">${__P(DB_PORT, 1433)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DB_NAME" elementType="Argument">
             <stringProp name="Argument.name">DB_NAME</stringProp>
-            <stringProp name="Argument.value">BookService-Master</stringProp>
+            <stringProp name="Argument.value">${__P(DB_NAME, BookService-Master)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DB_USER" elementType="Argument">
             <stringProp name="Argument.name">DB_USER</stringProp>
-            <stringProp name="Argument.value">testuser</stringProp>
+            <stringProp name="Argument.value">${__P(DB_USER, testuser)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DB_PASSWORD" elementType="Argument">
             <stringProp name="Argument.name">DB_PASSWORD</stringProp>
-            <stringProp name="Argument.value">TestDb@26#!</stringProp>
+            <stringProp name="Argument.value">${__P(DB_PASSWORD, TestDb@26#!)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="DB_CONN_PROPS" elementType="Argument">
+            <stringProp name="Argument.name">DB_CONN_PROPS</stringProp>
+            <stringProp name="Argument.value">${__P(DB_CONN_PROPS, encrypt=true;trustServerCertificate=true;)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -39,7 +44,7 @@
         <boolProp name="autocommit">true</boolProp>
         <stringProp name="checkQuery">SELECT 1</stringProp>
         <stringProp name="connectionAge">5000</stringProp>
-        <stringProp name="connectionProperties">encrypt=true;trustServerCertificate=true;</stringProp>
+        <stringProp name="connectionProperties">${DB_CONN_PROPS}</stringProp>
         <stringProp name="dataSource">BookStoreDB</stringProp>
         <stringProp name="dbUrl">jdbc:sqlserver://${DB_SERVER}:${DB_PORT};databaseName=${DB_NAME}</stringProp>
         <stringProp name="driver">com.microsoft.sqlserver.jdbc.SQLServerDriver</stringProp>

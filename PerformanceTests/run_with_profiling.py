@@ -638,9 +638,17 @@ def main():
     # Run JMeter Test
     print_color("[3/7] Running JMeter performance test...", Colors.YELLOW)
     print(f"    Test File: {test_file}")
+
+    # Extract config for JMeter
+    jmeter_host = env_config.get('host', 'localhost')
+    jmeter_port = env_config.get('port', 80)
+    jmeter_protocol = env_config.get('protocol', 'http')
+    
+    print(f"    Target: {jmeter_protocol}://{jmeter_host}:{jmeter_port}")
     print()
     
-    jmeter_cmd = f'jmeter -n -t {test_file} -l results/{test_name}_results.jtl -j results/{test_name}_jmeter.log -e -o results/{test_name}_report'
+    jmeter_params = f"-JBASE_URL={jmeter_host} -JPORT={jmeter_port} -JPROTOCOL={jmeter_protocol}"
+    jmeter_cmd = f'jmeter -n -t {test_file} {jmeter_params} -l results/{test_name}_results.jtl -j results/{test_name}_jmeter.log -e -o results/{test_name}_report'
     
     jmeter_result = subprocess.run(jmeter_cmd, shell=True)
     

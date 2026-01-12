@@ -1,9 +1,9 @@
 {
   "environments": {
     "source": {
-      "base_url": "https://10.134.77.68",
+      "base_url": "https://10.134.77.67",
       "protocol": "https",
-      "host": "10.134.77.68",
+      "host": "10.134.77.67",
       "port": 443,
       "api_prefix": "/api",
       "verify_ssl": false,
