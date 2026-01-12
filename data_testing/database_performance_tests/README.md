@@ -42,7 +42,7 @@ See [JMETER_SETUP.md](JMETER_SETUP.md) for detailed instructions.
 
 ## Configuration
 
-Database environments are configured in `../db_config.json`:
+Database environments are configured in `../../db_config.json`:
 
 ```json
 {
@@ -91,7 +91,7 @@ python run_and_monitor_db_test.py --env target --cleanup
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--env, --environment` | Database environment (source/target/local) | None |
-| `--config` | Path to db_config.json | ../db_config.json |
+| `--config` | Path to db_config.json | ../../db_config.json |
 | `--cleanup` | Clean database and exit | False |
 | `--tool` | Testing tool (python/jmeter) | python |
 | `--no-seed` | Skip database seeding | False |

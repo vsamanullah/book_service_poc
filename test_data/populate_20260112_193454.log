@@ -1,0 +1,53 @@
+2026-01-12 19:34:54,279 - INFO - Loaded configuration from: ../db_config.json
+2026-01-12 19:34:54,279 - INFO - Using environment: source
+2026-01-12 19:34:54,280 - INFO - Loaded configuration from: ../db_config.json
+2026-01-12 19:34:54,390 - INFO -  Connected to database successfully
+2026-01-12 19:34:54,390 - INFO -   Database Version: Microsoft SQL Server 2016 (SP3-GDR) (KB5068401) - 13.0.6475.1 (X64) 
+	Oct  4 2025 05:49:46 
+	Copyrig...
+2026-01-12 19:34:54,391 - INFO - 
+======================================================================
+2026-01-12 19:34:54,392 - INFO - DATABASE SUMMARY
+2026-01-12 19:34:54,392 - INFO - ======================================================================
+2026-01-12 19:34:54,398 - INFO -   dbo.Authors                                     107 rows
+2026-01-12 19:34:54,399 - INFO -   dbo.Books                                       112 rows
+2026-01-12 19:34:54,399 - INFO -   dbo.Countries                                     0 rows
+2026-01-12 19:34:54,399 - INFO -   dbo.Customers                                    20 rows
+2026-01-12 19:34:54,400 - INFO - ======================================================================
+2026-01-12 19:34:54,400 - INFO -   Total Rows: 239
+2026-01-12 19:34:54,400 - INFO - ======================================================================
+2026-01-12 19:34:54,403 - INFO - 
+======================================================================
+2026-01-12 19:34:54,404 - INFO - DELETING ALL RECORDS FROM DATABASE
+2026-01-12 19:34:54,404 - INFO - ======================================================================
+2026-01-12 19:34:54,410 - INFO - Found 4 tables to clear
+
+2026-01-12 19:34:54,411 - INFO - ⚙  Disabling foreign key constraints...
+2026-01-12 19:34:54,413 - WARNING -   Could not disable constraints on dbo.Books: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Books" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,417 - WARNING -   Could not disable constraints on dbo.Authors: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Authors" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,420 - WARNING -   Could not disable constraints on dbo.Countries: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Countries" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,423 - WARNING -   Could not disable constraints on dbo.Customers: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Customers" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,437 - INFO -   Deleted   112 rows from dbo.Books
+2026-01-12 19:34:54,448 - INFO -   Deleted   107 rows from dbo.Authors
+2026-01-12 19:34:54,450 - INFO -   Skipped dbo.Countries (already empty)
+2026-01-12 19:34:54,460 - INFO -   Deleted    20 rows from dbo.Customers
+2026-01-12 19:34:54,460 - INFO - 
+⚙  Re-enabling foreign key constraints...
+2026-01-12 19:34:54,462 - WARNING -   Could not re-enable constraints on dbo.Books: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Books" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,466 - WARNING -   Could not re-enable constraints on dbo.Authors: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Authors" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,469 - WARNING -   Could not re-enable constraints on dbo.Countries: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Countries" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,472 - WARNING -   Could not re-enable constraints on dbo.Customers: ('42000', '[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot find the object "Customers" because it does not exist or you do not have permissions. (1088) (SQLExecDirectW)')
+2026-01-12 19:34:54,472 - INFO - ======================================================================
+2026-01-12 19:34:54,473 - INFO -  All records deleted successfully
+2026-01-12 19:34:54,473 - INFO - ======================================================================
+2026-01-12 19:34:54,473 - INFO - 
+======================================================================
+2026-01-12 19:34:54,474 - INFO - DATABASE SUMMARY
+2026-01-12 19:34:54,474 - INFO - ======================================================================
+2026-01-12 19:34:54,479 - INFO -   dbo.Authors                                       0 rows
+2026-01-12 19:34:54,479 - INFO -   dbo.Books                                         0 rows
+2026-01-12 19:34:54,480 - INFO -   dbo.Countries                                     0 rows
+2026-01-12 19:34:54,480 - INFO -   dbo.Customers                                     0 rows
+2026-01-12 19:34:54,480 - INFO - ======================================================================
+2026-01-12 19:34:54,481 - INFO -   Total Rows: 0
+2026-01-12 19:34:54,481 - INFO - ======================================================================

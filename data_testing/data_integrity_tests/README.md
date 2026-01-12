@@ -46,7 +46,7 @@ The **BookServiceTestDataIntegrity** module provides comprehensive automated tes
 
 ```bash
 # Navigate to module directory
-cd BookServiceDataTesting\BookServiceTestDataIntegrity
+cd data_testing\data_integrity_tests
 
 # Install Python dependencies (if not already installed)
 pip install pyodbc
@@ -54,7 +54,7 @@ pip install pyodbc
 
 ### Configuration
 
-The module uses `../db_config.json` for database connections. Ensure this file exists with your environment configurations:
+The module uses `../../db_config.json` for database connections. Ensure this file exists with your environment configurations:
 
 ```json
 {

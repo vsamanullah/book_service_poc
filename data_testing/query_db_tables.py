@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def load_config(config_path="db_config.json", env_name="target"):
+def load_config(config_path="../db_config.json", env_name="target"):
     """Load database configuration from JSON file"""
     with open(config_path, 'r') as f:
         config = json.load(f)
