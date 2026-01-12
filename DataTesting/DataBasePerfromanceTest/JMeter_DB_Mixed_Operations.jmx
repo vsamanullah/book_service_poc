@@ -18,7 +18,7 @@
           </elementProp>
           <elementProp name="DB_NAME" elementType="Argument">
             <stringProp name="Argument.name">DB_NAME</stringProp>
-            <stringProp name="Argument.value">BookStore-Master</stringProp>
+            <stringProp name="Argument.value">BookService-Master</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DB_USER" elementType="Argument">
@@ -55,9 +55,9 @@
       </JDBCDataSource>
       <hashTree/>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Authors Operations - CRUD (25%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -74,7 +74,7 @@
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Authors] ORDER BY ID DESC</stringProp>
+            <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Authors] ORDER BY Id DESC</stringProp>
             <stringProp name="resultSetHandler">Store as String</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
@@ -113,8 +113,8 @@
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
-            <stringProp name="query">INSERT INTO [dbo].[Authors] (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation) 
-VALUES (NEWID(), &apos;TestAuthor${__UUID}&apos;, &apos;Test${__Random(1,9999)}&apos;, DATEADD(year, -${__Random(25,70)}, GETDATE()), &apos;American&apos;, &apos;Performance Test Author&apos;, &apos;testauthor${__UUID}@test.com&apos;, &apos;Test Publisher&apos;)</stringProp>
+            <stringProp name="query">INSERT INTO [dbo].[Authors] (Name) 
+VALUES (&apos;TestAuthor${__UUID}&apos;)</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
             <stringProp name="resultVariable">author_insert_result</stringProp>
@@ -128,8 +128,8 @@ VALUES (NEWID(), &apos;TestAuthor${__UUID}&apos;, &apos;Test${__Random(1,9999)}&
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">UPDATE TOP (1) [dbo].[Authors] 
-SET Bio = &apos;Updated Bio ${__time(yyyy-MM-dd HH:mm:ss)}&apos;, Email = &apos;updated${__UUID}@test.com&apos; 
-WHERE FirstName LIKE &apos;TestAuthor%&apos;</stringProp>
+SET Name = &apos;Updated${__UUID}&apos; 
+WHERE Name LIKE &apos;TestAuthor%&apos;</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
             <stringProp name="variableNames"></stringProp>
@@ -146,8 +146,8 @@ WHERE FirstName LIKE &apos;TestAuthor%&apos;</stringProp>
             <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - INSERT for Delete" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
-              <stringProp name="query">INSERT INTO [dbo].[Authors] (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation) 
-VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &apos;Test&apos;, &apos;To be deleted&apos;, &apos;delete@test.com&apos;, &apos;Test&apos;)</stringProp>
+              <stringProp name="query">INSERT INTO [dbo].[Authors] (Name) 
+VALUES (&apos;DeleteMe${__UUID}&apos;)</stringProp>
               <stringProp name="queryArguments"></stringProp>
               <stringProp name="queryArgumentsTypes"></stringProp>
               <stringProp name="variableNames"></stringProp>
@@ -160,7 +160,7 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
             <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Authors - DELETE" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
-              <stringProp name="query">DELETE TOP (1) FROM [dbo].[Authors] WHERE FirstName LIKE &apos;DeleteMe%&apos;</stringProp>
+              <stringProp name="query">DELETE TOP (1) FROM [dbo].[Authors] WHERE Name LIKE &apos;DeleteMe%&apos;</stringProp>
               <stringProp name="queryArguments"></stringProp>
               <stringProp name="queryArgumentsTypes"></stringProp>
               <stringProp name="variableNames"></stringProp>
@@ -178,9 +178,9 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
         <hashTree/>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Books Operations - CRUD (35%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -223,10 +223,10 @@ VALUES (NEWID(), &apos;DeleteMe${__UUID}&apos;, &apos;Test&apos;, GETDATE(), &ap
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - SELECT with JOIN" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 50 b.*, a.FirstName, a.LastName 
+            <stringProp name="query">SELECT TOP 50 b.*, a.Name as AuthorName 
 FROM [dbo].[Books] b 
-INNER JOIN [dbo].[Authors] a ON b.AuthorId = a.ID 
-ORDER BY b.ID DESC</stringProp>
+INNER JOIN [dbo].[Authors] a ON b.AuthorId = a.Id 
+ORDER BY b.Id DESC</stringProp>
             <stringProp name="resultSetHandler">Store as String</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
@@ -252,8 +252,8 @@ ORDER BY b.ID DESC</stringProp>
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
-            <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating) 
-VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;Performance test book description&apos;, (SELECT TOP 1 ID FROM [dbo].[Genres] ORDER BY NEWID()), GETDATE(), ${__Random(1,5)})</stringProp>
+            <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Genre) 
+VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 Id FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;Fiction&apos;)</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
             <stringProp name="variableNames"></stringProp>
@@ -267,7 +267,7 @@ VALUES (&apos;Test Book ${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] O
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
             <stringProp name="query">UPDATE TOP (1) [dbo].[Books] 
-SET Price = ${__Random(15,45)}.99, Rating = ${__Random(1,5)} 
+SET Price = ${__Random(15,45)}.99, Year = ${__Random(2015,2025)} 
 WHERE Title LIKE &apos;Test Book%&apos;</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
@@ -285,8 +285,8 @@ WHERE Title LIKE &apos;Test Book%&apos;</stringProp>
             <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Books - INSERT for Delete" enabled="true">
               <stringProp name="dataSource">BookStoreDB</stringProp>
               <stringProp name="queryType">Update Statement</stringProp>
-              <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating) 
-VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;To be deleted&apos;, (SELECT TOP 1 ID FROM [dbo].[Genres] ORDER BY NEWID()), GETDATE(), ${__Random(1,5)})</stringProp>
+              <stringProp name="query">INSERT INTO [dbo].[Books] (Title, AuthorId, Year, Price, Genre) 
+VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 Id FROM [dbo].[Authors] ORDER BY NEWID()), ${__Random(2015,2025)}, ${__Random(10,50)}.99, &apos;Fiction&apos;)</stringProp>
               <stringProp name="queryArguments"></stringProp>
               <stringProp name="queryArgumentsTypes"></stringProp>
               <stringProp name="variableNames"></stringProp>
@@ -317,9 +317,9 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
         <hashTree/>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Customers Operations - Read Only (20%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
+        <longProp name="ThreadGroup.duration">600</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -336,7 +336,7 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Customers - SELECT All" enabled="true">
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Customers] ORDER BY RegistrationDate DESC</stringProp>
+            <stringProp name="query">SELECT TOP 50 * FROM [dbo].[Customers] ORDER BY CustomerId DESC</stringProp>
             <stringProp name="resultSetHandler">Store as String</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>
@@ -376,206 +376,6 @@ VALUES (&apos;DeleteMe${__UUID}&apos;, (SELECT TOP 1 ID FROM [dbo].[Authors] ORD
             <stringProp name="dataSource">BookStoreDB</stringProp>
             <stringProp name="queryType">Select Statement</stringProp>
             <stringProp name="query">SELECT COUNT(*) as CustomerCount FROM [dbo].[Customers]</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-        </hashTree>
-        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="2 Second Timer" enabled="true">
-          <stringProp name="ConstantTimer.delay">2000</stringProp>
-        </ConstantTimer>
-        <hashTree/>
-      </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Stocks Operations - Read Only (10%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
-          <intProp name="LoopController.loops">-1</intProp>
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-        </elementProp>
-      </ThreadGroup>
-      <hashTree>
-        <RandomController guiclass="RandomControlGui" testclass="RandomController" testname="Random Stock Read" enabled="true">
-          <intProp name="InterleaveControl.style">1</intProp>
-        </RandomController>
-        <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT All" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 100 * FROM [dbo].[Stocks]</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT Available" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT * FROM [dbo].[Stocks] WHERE IsAvailable = 1</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - SELECT by BookId" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT * FROM [dbo].[Stocks] WHERE BookId = ${__Random(1,30)}
-</stringProp>
-            <stringProp name="queryArguments">${__Random(1,30)}</stringProp>
-            <stringProp name="queryArgumentsTypes">INTEGER</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Stocks - COUNT" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT COUNT(*) as StockCount FROM [dbo].[Stocks]</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-        </hashTree>
-        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="2 Second Timer" enabled="true">
-          <stringProp name="ConstantTimer.delay">2000</stringProp>
-        </ConstantTimer>
-        <hashTree/>
-      </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Rentals Operations - Read Only (5%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
-          <intProp name="LoopController.loops">-1</intProp>
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-        </elementProp>
-      </ThreadGroup>
-      <hashTree>
-        <RandomController guiclass="RandomControlGui" testclass="RandomController" testname="Random Rental Read" enabled="true">
-          <intProp name="InterleaveControl.style">1</intProp>
-        </RandomController>
-        <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT All" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 100 * FROM [dbo].[Rentals] ORDER BY RentalDate DESC</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - SELECT Active" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT * FROM [dbo].[Rentals] WHERE Status = &apos;Active&apos;</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Rentals - COUNT" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT COUNT(*) as RentalCount FROM [dbo].[Rentals]</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-        </hashTree>
-        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="2 Second Timer" enabled="true">
-          <stringProp name="ConstantTimer.delay">2000</stringProp>
-        </ConstantTimer>
-        <hashTree/>
-      </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Genres Operations - Read Only (5%)">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
-        <intProp name="ThreadGroup.ramp_time">1</intProp>
-        <longProp name="ThreadGroup.duration">60</longProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
-          <intProp name="LoopController.loops">-1</intProp>
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-        </elementProp>
-      </ThreadGroup>
-      <hashTree>
-        <RandomController guiclass="RandomControlGui" testclass="RandomController" testname="Random Genre Read" enabled="true">
-          <intProp name="InterleaveControl.style">1</intProp>
-        </RandomController>
-        <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT All" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT * FROM [dbo].[Genres]</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - SELECT by ID" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT TOP 1 * FROM [dbo].[Genres] ORDER BY NEWID()</stringProp>
-            <stringProp name="resultSetHandler">Store as String</stringProp>
-            <stringProp name="queryArguments"></stringProp>
-            <stringProp name="queryArgumentsTypes"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-            <stringProp name="resultVariable"></stringProp>
-            <stringProp name="queryTimeout"></stringProp>
-            <stringProp name="resultSetMaxRows"></stringProp>
-          </JDBCSampler>
-          <hashTree/>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Genres - COUNT" enabled="true">
-            <stringProp name="dataSource">BookStoreDB</stringProp>
-            <stringProp name="queryType">Select Statement</stringProp>
-            <stringProp name="query">SELECT COUNT(*) as GenreCount FROM [dbo].[Genres]</stringProp>
             <stringProp name="resultSetHandler">Store as String</stringProp>
             <stringProp name="queryArguments"></stringProp>
             <stringProp name="queryArgumentsTypes"></stringProp>

@@ -34,12 +34,10 @@ python run_and_monitor_db_test.py --env target --no-seed
 <to be updated>
 
 ### Tables Under Test
-- **Authors** - Author information with full biographical data
-- **Books** - Book catalog with pricing and ratings
-- **Genres** - Book genre categories
-- **Customers** - Customer records with registration details
-- **Rentals** - Rental transactions and status tracking
-- **Stocks** - Book inventory and availability management
+- **Authors** - Author information (Id, Name)
+- **Books** - Book catalog with titles, years, prices, genres, and author references
+- **Customers** - Customer records with names, emails, and countries
+- **Countries** - Country reference table
 
 ## What Are We Testing?
 
@@ -64,8 +62,8 @@ python run_and_monitor_db_test.py --env target --no-seed
    - DELETE operation handling with referential integrity
 
 4. **Multi-Table Transaction Testing**
-   - Cross-table operations (Rentals → Customers/Stocks)
-   - Foreign key constraint performance
+   - Books-Authors JOIN operations
+   - Foreign key constraint performance (Books → Authors)
    - Complex JOIN queries
    - Transaction isolation under load
 
@@ -82,94 +80,57 @@ python run_and_monitor_db_test.py --env target --no-seed
 
 ### Database Schema
 ```
-Database: BookStore-Master
+Database: BookService-Master
 
 Tables:
 1. Authors (Parent Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - AuthorId (UNIQUEIDENTIFIER)
-   - FirstName (NVARCHAR)
-   - LastName (NVARCHAR)
-   - BirthDate (DATETIME)
-   - Nationality (NVARCHAR)
-   - Bio (NVARCHAR)
-   - Email (NVARCHAR)
-   - Affiliation (NVARCHAR)
+   - Id (INT, PRIMARY KEY, IDENTITY)
+   - Name (NVARCHAR, NOT NULL)
 
-2. Genres (Lookup Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - Name (NVARCHAR)
+2. Books (Child Table)
+   - Id (INT, PRIMARY KEY, IDENTITY)
+   - Title (NVARCHAR, NOT NULL)
+   - Year (INT, NULLABLE)
+   - Price (DECIMAL, NULLABLE)
+   - Genre (NVARCHAR, NULLABLE)
+   - AuthorId (INT, FOREIGN KEY → Authors.Id, NOT NULL)
 
-3. Books (Parent Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - Title (NVARCHAR)
-   - AuthorId (INT, FOREIGN KEY → Authors.ID)
-   - Year (INT)
-   - Price (DECIMAL)
-   - Description (NVARCHAR)
-   - GenreId (INT, FOREIGN KEY → Genres.ID)
-   - IssueDate (DATETIME)
-   - Rating (TINYINT)
-   - Image (NVARCHAR, NULLABLE)
-   - TrailURI (NVARCHAR, NULLABLE)
+3. Customers (Parent Table)
+   - CustomerId (INT, PRIMARY KEY, IDENTITY)
+   - FirstName (NVARCHAR, NULLABLE)
+   - LastName (NVARCHAR, NULLABLE)
+   - Email (NVARCHAR, NULLABLE)
+   - Country (NVARCHAR, NULLABLE)
 
-4. Customers (Parent Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - FirstName (NVARCHAR)
-   - LastName (NVARCHAR)
-   - Email (NVARCHAR)
-   - IdentityCard (NVARCHAR)
-   - UniqueKey (UNIQUEIDENTIFIER)
-   - DateOfBirth (DATETIME)
-   - Mobile (NVARCHAR, NULLABLE)
-   - RegistrationDate (DATETIME)
-
-5. Stocks (Child Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - BookId (INT, FOREIGN KEY → Books.ID)
-   - UniqueKey (UNIQUEIDENTIFIER)
-   - IsAvailable (BIT)
-
-6. Rentals (Transaction Table)
-   - ID (INT, PRIMARY KEY, IDENTITY)
-   - CustomerId (INT, FOREIGN KEY → Customers.ID)
-   - StockId (INT, FOREIGN KEY → Stocks.ID)
-   - RentalDate (DATETIME)
-   - ReturnedDate (DATETIME, NULLABLE)
-   - Status (NVARCHAR)
+4. Countries (Lookup Table)
+   - CountryId (INT, PRIMARY KEY, IDENTITY)
+   - CountryName (NVARCHAR, NULLABLE)
 
 Foreign Key Relationships:
-- Books → Authors (BookId)
-- Books → Genres (GenreId)
-- Stocks → Books (BookId)
-- Rentals → Customers (CustomerId)
-- Rentals → Stocks (StockId)
+- Books → Authors (AuthorId)
 ```
 
 ### Test Data
-- **Genres**: 2 genres (ID=10: "General", ID=11: "Fiction") - auto-seeded
-- **Authors**: 20 pre-seeded records with full biographical data
-- **Books**: Generated dynamically during tests with FK to Authors (GenreId=10)
-- **Customers**: 20 pre-seeded customer records
-- **Stocks**: ~30 stock items (generated when books exist) - auto-seeded
-- **Rentals**: 0 initial records (table is empty at start)
+- **Authors**: 20 pre-seeded records with names
+- **Books**: Generated dynamically during tests with FK to Authors (Title, Year, Price, Genre, AuthorId)
+- **Customers**: 20 pre-seeded customer records with names, emails, and countries
 - **Test Records**: All marked with timestamp-based unique identifiers or "Test*" prefixes
 
 ### JMeter Test Configuration
 ```
 Test Duration: 600 seconds (10 minutes)
-Threads per Group: 50
-Ramp-up Time: 10 seconds
+Total Threads: 60 (distributed across 3 groups)
+Threads per Group: 20
+Ramp-up Time: 1 second
 Constant Timer: 2000ms (2-second pacing between requests)
 JDBC Pool: 50 connections, 10s timeout
 
 Thread Groups:
-1. Authors Operations (25% of load) - Full CRUD with Create-Delete pattern
-2. Books Operations (35% of load) - Full CRUD with Create-Delete pattern  
-3. Customers Operations (20% of load) - Read-only (SELECT queries)
-4. Stocks Operations (10% of load) - Read-only (SELECT queries)
-5. Rentals Operations (5% of load) - Read-only (SELECT queries)
-6. Genres Operations (5% of load) - Read-only (SELECT queries)
+1. Authors Operations (25% of load - 20 threads) - Full CRUD with Create-Delete pattern
+2. Books Operations (35% of load - 20 threads) - Full CRUD with JOIN to Authors
+3. Customers Operations (20% of load - 20 threads) - Read-only (SELECT queries)
+
+Note: Percentages reflect operational focus, not thread distribution
 ```
 
 ---
@@ -186,20 +147,16 @@ Thread Groups:
 
 **Test Steps**:
 1. Execute `python run_and_monitor_db_test.py --env target --cleanup`
-2. Verify all records are deleted from Rentals table (FK child)
-3. Verify all records are deleted from Stocks table (FK child)
-4. Verify all records are deleted from Books table
-5. Verify all records are deleted from Authors table
-6. Verify all records are deleted from Customers table
-7. Verify identity seeds are reset (if permissions allow)
+2. Verify all records are deleted from Books table (FK child)
+3. Verify all records are deleted from Authors table
+4. Verify all records are deleted from Customers table
+5. Verify identity seeds are reset (if permissions allow)
 
 **Expected Results**:
-- Rentals table: 0 records
-- Stocks table: 0 records
-- Books table: 0 records
+- Books table: 0 records (deleted first due to FK constraint)
 - Authors table: 0 records
 - Customers table: 0 records
-- Genres table: Preserved (not deleted)
+- Countries table: Preserved (lookup table not deleted)
 - Deletion respects foreign key constraints (correct order)
 - No errors during cleanup
 - Success message displayed
@@ -218,27 +175,22 @@ Thread Groups:
 
 **Test Steps**:
 1. Run seeding process (automatic during test execution unless --no-seed specified)
-2. Verify 2 genres are present (ID=10: "General", ID=11: "Fiction")
-3. Verify 20 author records are inserted with complete biographical data
-4. Verify 20 books are created with FK to authors and GenreId=10
-5. Verify 20 customer records are inserted with registration details
-6. Verify 30 stocks are created (linked to books)
+2. Verify 20 author records are inserted with names
+3. Verify 20 books are created with FK to authors (Title, Year, Price, Genre, AuthorId)
+4. Verify 20 customer records are inserted with names, emails, and countries
 
 **Expected Results**:
-- Genres table: 2 records (General, Fiction) with IDs 10 and 11
-- Authors table: 20 records with complete data (FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
-- Books table: 20 records with valid AuthorId and GenreId=10
-- Customers table: 20 records with unique emails and identity cards
-- Stocks table: 30 records linked to books
-- All GUIDs properly generated
+- Authors table: 20 records with Name column only (simplified schema)
+- Books table: 20 records with valid AuthorId FK (Title, Year, Price, Genre as string, AuthorId)
+- Customers table: 20 records with FirstName, LastName, Email, Country
 - No duplicate records
-- All foreign key relationships valid
+- All foreign key relationships valid (Books → Authors)
 
 **Success Criteria**:
 -   All tables seeded successfully
--   Foreign keys properly linked (Books→Authors, Books→Genres, Stocks→Books)
+-   Foreign keys properly linked (Books→Authors only)
 -   No constraint violations
--   Genre IDs are 10 and 11 (not 1)
+-   Authors use simplified schema (Name only, not FirstName/LastName)
 
 ---
 
@@ -790,19 +742,26 @@ Focus: Stock availability tracking
 **Test Steps**:
 1. Execute: `python run_and_monitor_db_test.py --env target --no-profiling`
 2. Verify JMeter starts without errors
-3. Monitor console for test progress
+3. Monitor console for real-time test progress (intermediate summaries displayed every ~30 seconds)
 4. Wait for 10-minute test completion
 5. Review generated files in jmeter_results/ directory
 
 **Expected Results**:
 - JMeter test runs for 600 seconds (10 minutes)
-- 50 threads per group execute operations in parallel
+- 20 threads per group (60 total) execute operations in parallel
+- Real-time progress displayed with intermediate summaries showing:
+  - Elapsed time (e.g., [30s], [60s], [90s]...)
+  - Request counts and throughput (e.g., "524 in 30s = 17.5/s")
+  - Average response times and error percentages
+- Thread startup notifications visible
+- Dashboard generation progress shown
 - HTML report generated successfully
 - No JDBC connection errors
-- Summary statistics displayed
+- Final summary statistics displayed
 
 **Success Criteria**:
 -   JMeter executes without errors
+-   Real-time intermediate summaries displayed during execution
 -   All output files created (JTL, HTML report, log)
 -   >95% success rate in summary
 -   Test runs for full 10 minutes
@@ -818,26 +777,30 @@ Focus: Stock availability tracking
 Tool: JMeter
 Profiling: Enabled (Windows typeperf)
 Duration: 600 seconds
-Thread Groups: 6 (Authors, Books, Customers, Stocks, Rentals, Genres)
-Threads per Group: 50
+Thread Groups: 3 (Authors, Books, Customers)
+Threads per Group: 20
+Total Threads: 60
 ```
 
 **Test Steps**:
 1. Execute: `python run_and_monitor_db_test.py --env target`
 2. Verify typeperf starts monitoring system metrics
-3. Wait for 10-minute test completion
-4. Verify performance data collection
-5. Check performance graph generation
+3. Observe real-time JMeter progress in console (intermediate summaries)
+4. Wait for 10-minute test completion
+5. Verify performance data collection
+6. Check performance graph generation
 
 **Expected Results**:
 - Performance monitoring starts before JMeter test
 - Metrics collected every 1 second (CPU, Memory, Disk I/O, Network)
+- Real-time JMeter progress displayed with intermediate summaries every ~30 seconds
 - Monitoring stops after test completion
 - CSV file cleaned and processed (PDH headers removed)
 - 4 performance graphs generated as PNG file
 
 **Success Criteria**:
 -   Performance data captured successfully for full test duration
+-   Real-time progress updates visible during JMeter execution
 -   Graphs generated without errors
 -   All 4 metrics visible in 2x2 subplot layout
 -   Clean CSV file created without PDH headers
@@ -851,16 +814,16 @@ Threads per Group: 50
 
 **Test Configuration**:
 ```
-Threads: 50
+Threads: 20 (25% of total load)
 Duration: 600 seconds  
-Ramp-up: 10 seconds
+Ramp-up: 1 second
 Constant Timer: 2000ms
 Operation Mix (randomly selected):
 - SELECT All (TOP 50)
 - SELECT by ID
 - COUNT
-- INSERT (with NEWID, random data)
-- UPDATE (Bio and Email)
+- INSERT (Name only - simplified schema)
+- UPDATE (Name field)
 - Create-Delete Transaction (INSERT followed by immediate DELETE)
 ```
 
@@ -875,11 +838,12 @@ Operation Mix (randomly selected):
 **Expected Results**:
 - All Authors operations complete successfully
 - SELECT queries fastest (<50ms average)
-- INSERT creates records with unique AuthorId (GUID)
-- UPDATE modifies only test records (FirstName LIKE 'TestAuthor%')
+- INSERT creates records with Name column (simplified schema)
+- UPDATE modifies only test records (Name LIKE 'TestAuthor%')
 - Create-Delete transactions atomic (INSERT+DELETE as one unit)
-- DELETE removes only test records (FirstName LIKE 'DeleteMe%')
+- DELETE removes only test records (Name LIKE 'DeleteMe%')
 - No orphaned records after test
+- No references to FirstName/LastName columns (old schema)
 
 **Success Criteria**:
 -   >98% success rate for Authors operations
@@ -896,17 +860,17 @@ Operation Mix (randomly selected):
 
 **Test Configuration**:
 ```
-Threads: 50
+Threads: 20 (35% of total load)
 Duration: 600 seconds
-Ramp-up: 10 seconds
+Ramp-up: 1 second
 Constant Timer: 2000ms
 Operation Mix (randomly selected):
 - SELECT All (TOP 100)
 - SELECT by ID
-- SELECT with JOIN (Books + Authors)
+- SELECT with JOIN (Books + Authors) - Uses a.Name as AuthorName
 - COUNT
-- INSERT (with random AuthorId, Year, Price, Rating, GenreId=10)
-- UPDATE (Price and Rating)
+- INSERT (Title, Year, Price, Genre string, AuthorId FK)
+- UPDATE (Price and Genre)
 - Create-Delete Transaction (INSERT followed by immediate DELETE)
 ```
 
@@ -921,18 +885,19 @@ Operation Mix (randomly selected):
 **Expected Results**:
 - All Books operations complete successfully
 - SELECT queries fastest (<50ms average)
-- JOIN queries show Authors data correctly
-- INSERT respects FK constraints (valid AuthorId, GenreId=10)
-- No FK constraint violations for GenreId (10 exists in Genres table)
-- UPDATE modifies only test records
+- JOIN queries show Authors.Name correctly (a.Name as AuthorName)
+- INSERT respects FK constraints (valid AuthorId)
+- Genre stored as string field (not FK - simplified schema)
+- UPDATE modifies only test records (Title LIKE 'Test Book%')
 - Create-Delete transactions atomic
-- DELETE removes only test records
+- DELETE removes only test records (Title LIKE 'DeleteMe%')
+- No references to GenreId FK (old schema removed)
 
 **Success Criteria**:
 -   >98% success rate for Books operations
 -   Average response time < 120ms
--   No FK constraint errors for AuthorId or GenreId
--   JOIN queries execute successfully
+-   No FK constraint errors for AuthorId
+-   JOIN queries execute successfully with Authors.Name
 -   No orphaned records after test
 
 ---
@@ -943,12 +908,12 @@ Operation Mix (randomly selected):
 
 **Test Configuration**:
 ```
-Threads: 50
+Threads: 20 (20% of total load)
 Duration: 600 seconds
-Ramp-up: 10 seconds
+Ramp-up: 1 second
 Constant Timer: 2000ms
 Operation Mix (randomly selected, read-only):
-- SELECT All (TOP 50, ordered by RegistrationDate DESC)
+- SELECT All (TOP 50, ordered by CustomerId DESC)
 - SELECT by ID
 - SELECT by Email (LIKE '%test%')
 - COUNT
@@ -960,6 +925,7 @@ Operation Mix (randomly selected, read-only):
 3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
 4. Analyze SELECT by Email LIKE pattern performance
 5. Confirm COUNT operations return accurate results
+6. Verify no RegistrationDate column references (removed from schema)
 
 **Expected Results**:
 - All Customer operations complete successfully
@@ -967,6 +933,7 @@ Operation Mix (randomly selected, read-only):
 - Email LIKE searches work correctly with wildcards
 - Fast response times (read-only operations)
 - No data modifications
+- Customers sorted by CustomerId (not RegistrationDate)
 
 **Success Criteria**:
 -   100% success rate for Customer read operations
@@ -976,135 +943,20 @@ Operation Mix (randomly selected, read-only):
 
 ---
 
-### TC-020: JMeter Stocks Thread Group - Read-Only Performance
-
-**Objective**: Test Stocks table read operations via JDBC (10% of load)
-
-**Test Configuration**:
-```
-Threads: 50
-Duration: 600 seconds
-Ramp-up: 10 seconds
-Constant Timer: 2000ms
-Operation Mix (randomly selected, read-only):
-- SELECT All (TOP 100)
-- SELECT Available only (WHERE IsAvailable=1)
-- SELECT by BookId (FK lookup)
-- COUNT
-```
-
-**Test Steps**:
-1. Execute JMeter test
-2. Focus on Stocks Thread Group results
-3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
-4. Analyze availability filtering performance (IsAvailable=1)
-5. Verify BookId FK lookups work correctly
-
-**Expected Results**:
-- All Stock operations complete successfully
-- Only SELECT and COUNT queries executed
-- IsAvailable filtering returns correct results
-- BookId FK references resolve properly
-- Fast response times (read-only operations)
-
-**Success Criteria**:
--   100% success rate for Stock read operations
--   Average response time < 50ms
--   No INSERT/UPDATE/DELETE operations executed
--   Database data unchanged after test
-
----
-
-### TC-021: JMeter Rentals Thread Group - Read-Only Performance
-
-**Objective**: Test Rentals table read operations via JDBC (5% of load)
-
-**Test Configuration**:
-```
-Threads: 50
-Duration: 600 seconds
-Ramp-up: 10 seconds
-Constant Timer: 2000ms
-Operation Mix (randomly selected, read-only):
-- SELECT All
-- SELECT Active rentals only (WHERE ReturnedDate IS NULL)
-- COUNT
-```
-
-**Test Steps**:
-1. Execute JMeter test
-2. Focus on Rentals Thread Group results
-3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
-4. Analyze Active rentals filtering performance
-5. Confirm COUNT operations return accurate results
-
-**Expected Results**:
-- All Rental operations complete successfully
-- Only SELECT and COUNT queries executed
-- Active rental filtering works correctly
-- Fast response times (read-only operations)
-- No data modifications
-
-**Success Criteria**:
--   100% success rate for Rental read operations
--   Average response time < 50ms
--   No INSERT/UPDATE/DELETE operations executed
--   Database data unchanged after test
-
----
-
-### TC-022: JMeter Genres Thread Group - Read-Only Performance
-
-**Objective**: Test Genres table read operations via JDBC (5% of load)
-
-**Test Configuration**:
-```
-Threads: 50
-Duration: 600 seconds
-Ramp-up: 10 seconds
-Constant Timer: 2000ms
-Operation Mix (randomly selected, read-only):
-- SELECT All
-- SELECT by ID (Genre 10 or 11)
-- COUNT
-```
-
-**Test Steps**:
-1. Execute JMeter test
-2. Focus on Genres Thread Group results
-3. Verify all operations are read-only (no INSERT/UPDATE/DELETE)
-4. Confirm only Genre IDs 10 and 11 exist
-5. Analyze simple lookup performance
-
-**Expected Results**:
-- All Genre operations complete successfully
-- Only SELECT and COUNT queries executed
-- SELECT by ID returns correct Genre names (10='General', 11='Fiction')
-- Fast response times (read-only operations)
-- No data modifications
-
-**Success Criteria**:
--   100% success rate for Genre read operations
--   Average response time < 50ms
--   No INSERT/UPDATE/DELETE operations executed
--   Database data unchanged after test
-
----
-
-### TC-023: Create-Delete Transaction Pattern Validation
+### TC-020: Create-Delete Transaction Pattern Validation
 
 **Objective**: Verify atomic Create-Delete transactions leave no orphaned records
 
 **Test Configuration**:
 ```
-Authors Thread Group (25% load):
+Authors Thread Group (20 threads):
 - Transaction Controller: "Create and Delete Author"
-  - INSERT Author with FirstName='DeleteMe${__UUID}'
-  - DELETE Author WHERE FirstName LIKE 'DeleteMe%'
+  - INSERT Author with Name='DeleteMe${__UUID}'
+  - DELETE Author WHERE Name LIKE 'DeleteMe%'
 
-Books Thread Group (35% load):
+Books Thread Group (20 threads):
 - Transaction Controller: "Create and Delete Book"
-  - INSERT Book with Title='DeleteMe${__UUID}', GenreId=10
+  - INSERT Book with Title='DeleteMe${__UUID}', Genre string, AuthorId FK
   - DELETE Book WHERE Title LIKE 'DeleteMe%'
 ```
 
@@ -1112,7 +964,7 @@ Books Thread Group (35% load):
 1. Execute JMeter test
 2. Monitor Create-Delete transactions in results
 3. After test completion, query database:
-   - `SELECT * FROM Authors WHERE FirstName LIKE 'DeleteMe%'`
+   - `SELECT * FROM Authors WHERE Name LIKE 'DeleteMe%'`
    - `SELECT * FROM Books WHERE Title LIKE 'DeleteMe%'`
 4. Verify no orphaned "DeleteMe" records exist
 5. Check transaction success rates
@@ -1132,7 +984,7 @@ Books Thread Group (35% load):
 
 ---
 
-### TC-024: Foreign Key Constraint Validation
+### TC-021: Foreign Key Constraint Validation
 
 **Objective**: Verify FK constraints are properly enforced in Books operations
 
@@ -1140,38 +992,36 @@ Books Thread Group (35% load):
 ```
 Books Thread Group operations:
 - INSERT Book with:
-  - GenreId=10 (valid FK to Genres table)
+  - Genre as string field (not FK - simplified schema)
   - AuthorId from SELECT TOP 1 (valid FK to Authors table)
-- SELECT with JOIN to verify FK relationships:
-  - Books → Authors
-  - Books → Genres
+- SELECT with JOIN to verify FK relationship:
+  - Books → Authors (Books.AuthorId → Authors.Id)
 ```
 
 **Test Steps**:
 1. Execute JMeter test
 2. Monitor Books INSERT operations
-3. Verify all INSERTs use GenreId=10 (not 1)
-4. Verify AuthorId is retrieved from existing Authors
-5. Check JOIN queries return correct related data
-6. Confirm no FK constraint violations
+3. Verify AuthorId is retrieved from existing Authors (SELECT TOP 1 Id FROM Authors ORDER BY NEWID())
+4. Check JOIN queries return correct Authors.Name data
+5. Confirm no FK constraint violations for AuthorId
 
 **Expected Results**:
-- All Books INSERTs succeed with GenreId=10
-- No "FK_dbo.Books_dbo.Genres_GenreId" constraint errors
+- All Books INSERTs succeed with valid AuthorId
 - AuthorId references valid Authors records
-- JOIN queries return matching Authors and Genres
-- No orphaned Books with invalid FKs
+- JOIN queries return matching Authors.Name (not FirstName/LastName)
+- Genre stored as string field (e.g., 'Fiction', 'Science', 'History')
+- No orphaned Books with invalid AuthorId FKs
 
 **Success Criteria**:
 -   100% success rate for Books INSERT (no FK errors)
--   All Books have GenreId=10 or 11 (valid Genres)
 -   All Books have valid AuthorId references
--   JOIN queries return correct related data
+-   JOIN queries return correct Authors.Name data
 -   No FK constraint violation errors in results
+-   No references to Genres table or GenreId FK
 
 ---
 
-### TC-025: JMeter HTML Report Validation
+### TC-022: JMeter HTML Report Validation
 
 **Objective**: Verify JMeter HTML report is generated correctly with all required sections
 
@@ -1203,7 +1053,7 @@ Books Thread Group operations:
 
 ---
 
-### TC-026: JMeter Performance Graph Validation
+### TC-023: JMeter Performance Graph Validation
 
 **Objective**: Verify system performance graphs are generated correctly (Windows only)
 
@@ -1237,7 +1087,7 @@ Books Thread Group operations:
 
 ---
 
-### TC-027: JMeter Test Without Seeding
+### TC-024: JMeter Test Without Seeding
 
 **Objective**: Test JMeter execution without re-seeding database (reuse existing data)
 

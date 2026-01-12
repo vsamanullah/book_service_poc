@@ -73,8 +73,6 @@
 Authors Table Structure:
   Id                   int             NULL=NO (Primary Key)
   Name                 nvarchar        NULL=NO
-  Bio                  nvarchar        NULL=YES
-  Nationality          nvarchar        NULL=YES
 ```
 
 **Pass Criteria**:
@@ -95,25 +93,23 @@ Authors Table Structure:
 **Test Steps**:
 1. Run schema inspection
 2. Verify column definitions
-3. Validate foreign key to Authors and Genres
+3. Validate foreign key to Authors
 
 **Expected Results**:
 ```
 Books Table Structure:
   Id                   int             NULL=NO (Primary Key)
   Title                nvarchar        NULL=NO
+  Year                 int             NULL=YES
+  Price                decimal         NULL=YES
+  Genre                nvarchar        NULL=YES
   AuthorId             int             NULL=NO (Foreign Key → Authors)
-  GenreId              int             NULL=YES (Foreign Key → Genres)
-  ISBN                 nvarchar        NULL=NO
-  Price                decimal         NULL=NO
-  Rating               decimal         NULL=YES
-  PublishedDate        datetime        NULL=YES
 ```
 
 **Pass Criteria**:
 - All columns present with correct types
-- Foreign keys defined
-- ISBN unique constraint exists
+- Foreign key to Authors defined
+- AuthorId is not nullable
 
 **Priority**: High  
 **Automated**: Yes
@@ -127,87 +123,39 @@ Books Table Structure:
 **Expected Results**:
 ```
 Customers Table Structure:
-  Id                   int             NULL=NO (Primary Key)
-  Name                 nvarchar        NULL=NO
-  Email                nvarchar        NULL=NO (Unique)
-  Phone                nvarchar        NULL=YES
-  RegistrationDate     datetime        NULL=NO
+  CustomerId           int             NULL=NO (Primary Key)
+  FirstName            nvarchar        NULL=YES
+  LastName             nvarchar        NULL=YES
+  Email                nvarchar        NULL=YES
+  Country              nvarchar        NULL=YES
 ```
 
 **Pass Criteria**:
-- Email field has unique constraint
-- RegistrationDate not nullable
+- CustomerId is primary key
+- All other fields are nullable
 
 **Priority**: High  
 **Automated**: Yes
 
 ---
 
-### TC-SV-004: Verify Stocks Table Schema
+### TC-SV-004: Verify Countries Table Schema
 
-**Objective**: Validate inventory table structure
+**Objective**: Validate countries reference table structure
 
 **Expected Results**:
 ```
-Stocks Table Structure:
-  Id                   int             NULL=NO (Primary Key)
-  BookId               int             NULL=NO (Foreign Key → Books)
-  BranchName           nvarchar        NULL=NO
-  Quantity             int             NULL=NO
-  IsAvailable          bit             NULL=NO
+Countries Table Structure:
+  CountryId            int             NULL=NO (Primary Key)
+  CountryName          nvarchar        NULL=YES
 ```
 
 **Pass Criteria**:
-- Foreign key to Books table exists
-- Quantity default value is 1
+- CountryId is primary key
+- CountryName is nullable
 - IsAvailable default is True
 
 **Priority**: High  
-**Automated**: Yes
-
----
-
-### TC-SV-005: Verify Rentals Table Schema
-
-**Objective**: Validate rental transaction structure
-
-**Expected Results**:
-```
-Rentals Table Structure:
-  Id                   int             NULL=NO (Primary Key)
-  CustomerId           int             NULL=NO (Foreign Key → Customers)
-  StockId              int             NULL=NO (Foreign Key → Stocks)
-  RentalDate           datetime        NULL=NO
-  ReturnDate           datetime        NULL=YES
-  Status               nvarchar        NULL=NO
-```
-
-**Pass Criteria**:
-- Two foreign keys defined (CustomerId, StockId)
-- Status has check constraint (Rented, Returned, Overdue)
-
-**Priority**: High  
-**Automated**: Yes
-
----
-
-### TC-SV-006: Verify Genres Table Schema
-
-**Objective**: Validate genre reference table
-
-**Expected Results**:
-```
-Genres Table Structure:
-  Id                   int             NULL=NO (Primary Key)
-  Name                 nvarchar        NULL=NO (Unique)
-  Description          nvarchar        NULL=YES
-```
-
-**Pass Criteria**:
-- Name has unique constraint
-- Table contains standard genres
-
-**Priority**: Medium  
 **Automated**: Yes
 
 ---

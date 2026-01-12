@@ -120,23 +120,66 @@ Server: 10.134.77.68,1433
 === Authors Table Structure ===
   Column Name                    Data Type       Nullable   Max Length
   ------------------------------ --------------- ---------- ----------
-  ID                             int             NO         N/A
-  FirstName                      nvarchar        NO         100
-  LastName                       nvarchar        NO         -1
-  BirthDate                      datetime        NO         N/A
-  Nationality                    nvarchar        NO         -1
+  Id                             int             NO         N/A
+  Name                           nvarchar        NO         -1
 
 === Books Table Structure ===
   Column Name                    Data Type       Nullable   Max Length
   ------------------------------ --------------- ---------- ----------
-  ID                             int             NO         N/A
-  Title                          nvarchar        NO         100
-  AuthorId                       int             NO         N/A
+  Id                             int             NO         N/A
+  Title                          nvarchar        NO         -1
   Year                           int             NO         N/A
   Price                          decimal         NO         N/A
+  Genre                          nvarchar        YES        -1
+  AuthorId                       int             NO         N/A
+
+=== Customers Table Structure ===
+  Column Name                    Data Type       Nullable   Max Length
+  ------------------------------ --------------- ---------- ----------
+  CustomerId                     int             NO         N/A
+  FirstName                      nvarchar        YES        -1
+  LastName                       nvarchar        YES        -1
+  Email                          nvarchar        YES        -1
+  Country                        nvarchar        YES        -1
+
+=== Countries Table Structure ===
+  Column Name                    Data Type       Nullable   Max Length
+  ------------------------------ --------------- ---------- ----------
+  CountryId                      int             NO         N/A
+  CountryName                    nvarchar        YES        -1
+```
+### 2. Populate Test Data
+
+**Purpose**: Create controlled test datasets for testing
+
+```bash
+# Populate target environment with 10 records (default)
+python populate_test_data.py --count 10 --env target
+
+# Populate source environment with 25 records
+python populate_test_data.py --count 25 --env source
+
+# Populate local environment with 100 records
+python populate_test_data.py --count 100 --env local
+
+# Using custom config file
+python populate_test_data.py --count 50 --env target --config /path/to/db_config.json
 ```
 
-### 2. Create Baseline (Pre-Migration)
+**Data Generation Pattern (for N records with --count N):**
+- **N Authors** with unique names
+- **2N Books** (2 books per author) with titles, years, prices, genres, and author references
+- **N Customers** with first names, last names, email addresses, and countries
+
+**Important Notes:**
+- ⚠ **This script DELETES all existing records** before populating
+- All generated records have unique timestamp-based identifiers
+- Maintains referential integrity with proper foreign key relationships
+
+**Generated Files:**
+- `populate_YYYYMMDD_HHMMSS.log`: Execution log with record counts
+
+### 3. Create Baseline (Pre-Migration)
 
 **Purpose**: Capture complete database state before migration
 
@@ -169,39 +212,7 @@ python create_baseline.py --env source --config /path/to/db_config.json
 - Index definitions
 - Timestamp and database connection info
 
-### 3. Populate Test Data
 
-**Purpose**: Create controlled test datasets for testing
-
-```bash
-# Populate target environment with 10 records (default)
-python populate_test_data.py --count 10 --env target
-
-# Populate source environment with 25 records
-python populate_test_data.py --count 25 --env source
-
-# Populate local environment with 100 records
-python populate_test_data.py --count 100 --env local
-
-# Using custom config file
-python populate_test_data.py --count 50 --env target --config /path/to/db_config.json
-```
-
-**Data Generation Pattern (for N records with --count N):**
-- **N Authors** with unique names, bios, nationalities, timestamps
-- **2N Books** (2 books per author) with titles, prices, ratings, genres
-- **N Customers** with email addresses, registration dates
-- **~6N Stocks** (3 copies per book)
-- **~3N Rentals** (approximately 50% of stocks rented)
-- **1 Genre** (automatically created if none exists)
-
-**Important Notes:**
-- ⚠ **This script DELETES all existing records** before populating
-- All generated records have unique timestamp-based identifiers
-- Maintains referential integrity with proper foreign key relationships
-
-**Generated Files:**
-- `populate_YYYYMMDD_HHMMSS.log`: Execution log with record counts
 
 ### 4. Verify Migration (Post-Migration)
 

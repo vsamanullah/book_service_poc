@@ -176,7 +176,7 @@ This document describes the performance test suite for the Book Service RESTful 
 **Objective**: Test the performance of retrieving all books from the database
 
 **Test Configuration**:
-- **Virtual Users**: 50 concurrent threads
+- **Virtual Users**: 20 concurrent threads
 - **Ramp-up Time**: 10 seconds
 - **Test Duration**: 300 seconds (5 minutes)
 - **Loop**: Infinite loop during test duration
@@ -203,7 +203,7 @@ This document describes the performance test suite for the Book Service RESTful 
 **Objective**: Test the performance of retrieving a specific book by ID
 
 **Test Configuration**:
-- **Virtual Users**: 50 concurrent threads
+- **Virtual Users**: 20 concurrent threads
 - **Ramp-up Time**: 10 seconds
 - **Test Duration**: 300 seconds (5 minutes)
 - **Data Source**: `book_ids.csv` - Contains valid book IDs

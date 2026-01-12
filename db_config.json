@@ -2,7 +2,7 @@
   "environments": {
     "source": {
       "server": "10.134.77.68,1433",
-      "database": "BookStore-Master",
+      "database": "BookService-Master",
       "username": "testuser",
       "password": "TestDb@26#!",
       "driver": "ODBC Driver 18 for SQL Server",
@@ -12,7 +12,7 @@
     },
     "target": {
       "server": "10.134.77.68,1433",
-      "database": "BookStore-Master",
+      "database": "BookService-Master",
       "username": "testuser",
       "password": "TestDb@26#!",
       "driver": "ODBC Driver 18 for SQL Server",
@@ -25,9 +25,9 @@
       "database": "BookServiceContext",
       "username": null,
       "password": null,
-      "driver": "ODBC Driver 17 for SQL Server",
+      "driver": "ODBC Driver 18 for SQL Server",
       "encrypt": false,
-      "trust_certificate": false,
+      "trust_certificate": true,
       "trusted_connection": true,
       "description": "Local Development Database (Windows Auth)"
     }

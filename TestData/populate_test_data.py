@@ -238,10 +238,13 @@ class TestDataPopulator:
         
         # Generate and insert authors
         first_names = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emma', 'Robert', 'Lisa', 
-                      'William', 'Mary', 'James', 'Patricia', 'Charles', 'Jennifer', 'Daniel']
+                      'William', 'Mary', 'James', 'Patricia', 'Charles', 'Jennifer', 'Daniel',
+                      'Thomas', 'Susan', 'Joseph', 'Nancy', 'Richard', 'Betty', 'Christopher']
         last_names = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 
-                     'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson']
-        nationalities = ['USA', 'UK', 'Canada', 'Australia', 'Ireland', 'Germany', 'France', 'Spain']
+                     'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson',
+                     'Anderson', 'Taylor', 'Thomas', 'Moore', 'Martin', 'Lee', 'White', 'Harris']
+        nationalities = ['American', 'British', 'Canadian', 'Australian', 'Irish', 'German', 'French', 'Spanish',
+                        'Italian', 'Japanese', 'Indian', 'Brazilian']
         
         author_ids = []
         
@@ -254,23 +257,18 @@ class TestDataPopulator:
             last_name = random.choice(last_names)
             unique_suffix = f"[{timestamp_str}.{microseconds:06d}]"
             
-            # Generate author data matching actual schema
-            import uuid
-            author_guid = str(uuid.uuid4())
-            birth_date = datetime.now() - timedelta(days=random.randint(20000, 30000))  # 55-82 years old
-            nationality = random.choice(nationalities)
-            bio = f"Bio for {first_name} {last_name} {unique_suffix}"
-            email = f"{first_name.lower()}.{last_name.lower()}.{i}@example.com"
-            affiliation = f"Publisher {i+1}"
+            # Generate author name (single Name field)
+            author_name = f"{first_name} {last_name} {unique_suffix}"
             
             try:
                 cursor.execute("""
-                    INSERT INTO Authors (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
-                    OUTPUT INSERTED.ID
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, author_guid, first_name, last_name + " " + unique_suffix, birth_date, nationality, bio, email, affiliation)
+                    INSERT INTO Authors (Name)
+                    VALUES (?)
+                """, author_name)
                 
-                author_id = cursor.fetchone()[0]
+                # Get the inserted ID
+                cursor.execute("SELECT @@IDENTITY")
+                author_id = int(cursor.fetchone()[0])
                 author_ids.append(author_id)
                 
                 if (i + 1) % 10 == 0 or i == count - 1:
@@ -324,25 +322,6 @@ class TestDataPopulator:
         
         book_ids = []
         
-        # Get existing genre IDs from the database or create a default genre
-        cursor.execute("SELECT TOP 1 ID FROM Genres")
-        genre_result = cursor.fetchone()
-        
-        if not genre_result:
-            # No genres exist, create a default one
-            logger.info("   No genres found, creating default genre...")
-            cursor.execute("""
-                INSERT INTO Genres (Name)
-                OUTPUT INSERTED.ID
-                VALUES (?)
-            """, "General")
-            default_genre_id = cursor.fetchone()[0]
-            conn.commit()
-            logger.info(f"   Created default genre with ID: {default_genre_id}")
-        else:
-            default_genre_id = genre_result[0]
-            logger.info(f"   Using existing genre ID: {default_genre_id}")
-        
         for i in range(count):
             # Create unique timestamp-based identifier
             timestamp_str = (self.timestamp + timedelta(seconds=i)).strftime('%Y%m%d%H%M%S')
@@ -352,23 +331,21 @@ class TestDataPopulator:
             topic = random.choice(topics)
             title = template.format(topic) + f" [TS:{timestamp_str}.{microseconds:06d}]"
             
-            # Assign to random author (using ID not AuthorId GUID)
+            # Assign to random author
             author_id = random.choice(author_ids)
             year = random.randint(2000, 2026)
             price = round(random.uniform(9.99, 99.99), 2)
-            description = f"Description for {topic} book {i+1}"
-            genre_id = default_genre_id
-            issue_date = datetime.now() - timedelta(days=random.randint(0, 3650))
-            rating = random.randint(1, 5)
+            genre = random.choice(['Fiction', 'Non-Fiction', 'Science', 'Technology', 'History', 'Biography', 'Mystery', 'Thriller'])
             
             try:
                 cursor.execute("""
-                    INSERT INTO Books (AuthorId, Title, Year, Price, Description, GenreId, IssueDate, Rating)
-                    OUTPUT INSERTED.ID
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, author_id, title, year, price, description, genre_id, issue_date, rating)
+                    INSERT INTO Books (Title, Year, Price, Genre, AuthorId)
+                    VALUES (?, ?, ?, ?, ?)
+                """, title, year, price, genre, author_id)
                 
-                book_id = cursor.fetchone()[0]
+                # Get the inserted ID
+                cursor.execute("SELECT @@IDENTITY")
+                book_id = int(cursor.fetchone()[0])
                 book_ids.append(book_id)
                 
                 if (i + 1) % 10 == 0 or i == count - 1:
@@ -390,9 +367,11 @@ class TestDataPopulator:
         logger.info(f"\n Populating Customers table with {count} records...")
         
         first_names = ['Alice', 'Bob', 'Carol', 'David', 'Eve', 'Frank', 'Grace', 'Henry', 
-                      'Ivy', 'Jack', 'Kate', 'Leo', 'Mia', 'Noah', 'Olivia']
+                      'Ivy', 'Jack', 'Kate', 'Leo', 'Mia', 'Noah', 'Olivia', 'Paul', 'Quinn',
+                      'Rachel', 'Sam', 'Tina', 'Uma', 'Victor', 'Wendy', 'Xavier', 'Yara', 'Zoe']
         last_names = ['Anderson', 'Baker', 'Carter', 'Davis', 'Evans', 'Foster', 'Green', 
-                     'Harris', 'Irving', 'Jackson', 'King', 'Lewis', 'Moore', 'Nelson']
+                     'Harris', 'Irving', 'Jackson', 'King', 'Lewis', 'Moore', 'Nelson', 'Owen',
+                     'Parker', 'Quinn', 'Reed', 'Scott', 'Turner', 'Underwood', 'Vincent']
         
         customer_ids = []
         
@@ -404,23 +383,18 @@ class TestDataPopulator:
             last_name = random.choice(last_names)
             unique_suffix = f"[{timestamp_str}.{microseconds:06d}]"
             
-            import uuid
-            unique_key = str(uuid.uuid4())
             email = f"{first_name.lower()}.{last_name.lower()}.{i}@customer.com"
-            identity_card = f"ID{1000+i}-{timestamp_str}"
-            date_of_birth = datetime.now() - timedelta(days=random.randint(6570, 25550))  # 18-70 years old
-            mobile = f"555{random.randint(1000000, 9999999)}"
-            registration_date = datetime.now() - timedelta(days=random.randint(0, 365))
+            country = random.choice(['USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'India', 'Japan'])
             
             try:
                 cursor.execute("""
-                    INSERT INTO Customers (FirstName, LastName, Email, IdentityCard, UniqueKey, DateOfBirth, Mobile, RegistrationDate)
-                    OUTPUT INSERTED.ID
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, first_name + " " + unique_suffix, last_name, email, identity_card, unique_key, 
-                     date_of_birth, mobile, registration_date)
+                    INSERT INTO Customers (FirstName, LastName, Email, Country)
+                    VALUES (?, ?, ?, ?)
+                """, first_name + " " + unique_suffix, last_name, email, country)
                 
-                customer_id = cursor.fetchone()[0]
+                # Get the inserted ID
+                cursor.execute("SELECT @@IDENTITY")
+                customer_id = int(cursor.fetchone()[0])
                 customer_ids.append(customer_id)
                 
                 if (i + 1) % 10 == 0 or i == count - 1:
@@ -435,7 +409,9 @@ class TestDataPopulator:
         
         return customer_ids
     
-    def populate_stocks(self, conn, book_ids: list, copies_per_book: int = 3):
+    # Note: Stocks and Rentals tables not found in current schema - methods removed
+    
+    def populate_database(self):
         """Populate Stocks table with test data"""
         cursor = conn.cursor()
         
@@ -481,7 +457,7 @@ class TestDataPopulator:
         logger.info(f"\n Populating Rentals table with {rental_count} records...")
         
         rental_ids = []
-        statuses = ['Active', 'Returned', 'Returned', 'Returned']  # 75% returned
+        statuses = ['Rented', 'Returned', 'Returned', 'Returned', 'Overdue']  # Mixed statuses
         
         for i in range(rental_count):
             customer_id = random.choice(customer_ids)
@@ -542,23 +518,12 @@ class TestDataPopulator:
             # Populate Customers (independent table)
             customer_ids = self.populate_customers(conn, self.record_count)
             
-            # Populate Stocks (child table with FK to Books)
-            # Create 3 copies per book
-            stock_ids = self.populate_stocks(conn, book_ids, copies_per_book=3)
-            
-            # Populate Rentals (child table with FK to Customers and Stocks)
-            # Create some rentals (about half the number of stocks)
-            rentals_count = len(stock_ids) // 2
-            rental_ids = self.populate_rentals(conn, customer_ids, stock_ids, rentals_count)
-            
             logger.info("\n" + "="*70)
             logger.info("✓ DATABASE POPULATED SUCCESSFULLY")
             logger.info("="*70)
             logger.info(f"  Authors created:   {len(author_ids)}")
             logger.info(f"  Books created:     {len(book_ids)}")
             logger.info(f"  Customers created: {len(customer_ids)}")
-            logger.info(f"  Stocks created:    {len(stock_ids)}")
-            logger.info(f"  Rentals created:   {len(rental_ids)}")
             logger.info("="*70)
             
         except Exception as e:
@@ -694,8 +659,8 @@ Examples:
     print("="*70)
     if record_count > 0:
         print(f"Will populate with {record_count} new test records per table")
-        print("(Authors: {}, Books: {}, Customers: {}, Stocks: ~{}, Rentals: ~{})".format(
-            record_count, record_count * 2, record_count, record_count * 6, record_count * 3))
+        print("(Authors: {}, Books: {}, Customers: {})".format(
+            record_count, record_count * 2, record_count))
     else:
         print("All records will be DELETED. No new data will be created.")
     print("="*70 + "\n")
@@ -720,8 +685,6 @@ Examples:
             print(f"    • Created {record_count} authors")
             print(f"    • Created {record_count * 2} books")
             print(f"    • Created {record_count} customers")
-            print(f"    • Created ~{record_count * 6} stocks (3 copies per book)")
-            print(f"    • Created ~{record_count * 3} rentals")
             print(f"    • All records have unique timestamp-based identifiers")
             print("="*70)
         else:

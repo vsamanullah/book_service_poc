@@ -8,7 +8,7 @@ Comprehensive database performance testing tool supporting both Python-based loa
 - **System Performance Monitoring**: Real-time CPU, Memory, Disk, and Network metrics (Windows)
 - **Automatic Database Setup**: Clean, seed, and prepare test data automatically
 - **Performance Graphs**: Auto-generated visualization of system metrics during tests
-- **Multiple Test Types**: Books, Customers, Rentals, Stocks operations (CRUD)
+- **Multiple Test Types**: Books and Customers operations (CRUD)
 - **Flexible Configuration**: Use predefined environments or custom connection strings
 - **HTML Reports**: JMeter generates detailed HTML reports with charts
 
@@ -61,26 +61,6 @@ Database environments are configured in `../db_config.json`:
 ```
 
 ## Usage
-
-### Python Load Testing (Default)
-
-Basic test with 10 concurrent connections, 50 operations each:
-```bash
-python run_and_monitor_db_test.py --env target -c 10 -o 50
-```
-
-Extended test with 120-second monitoring:
-```bash
-python run_and_monitor_db_test.py --env target -c 20 -o 100 -d 120
-```
-
-Test specific operations:
-```bash
-python run_and_monitor_db_test.py --env target -c 5 -o 100 -t Books
-python run_and_monitor_db_test.py --env target -c 5 -o 100 -t Read
-python run_and_monitor_db_test.py --env target -c 5 -o 100 -t Write
-```
-
 ### JMeter Testing
 
 Standard JMeter test with profiling:
@@ -134,15 +114,11 @@ python run_and_monitor_db_test.py --env target --cleanup
 ### Python Testing
 - **Books**: SELECT, INSERT, UPDATE, DELETE on Books table
 - **Customers**: SELECT, INSERT, UPDATE, DELETE on Customers table  
-- **Rentals**: SELECT, UPDATE (return books)
-- **Stocks**: SELECT, UPDATE (availability)
-- **Mixed**: Weighted distribution (40% Books, 25% Customers, 20% Rentals, 15% Stocks)
+- **Mixed**: Weighted distribution (60% Books, 40% Customers)
 
-### JMeter Testing (530 Operations)
-- **Books Thread Group** (200 ops): Full CRUD with JOIN queries
-- **Customers Thread Group** (150 ops): Full CRUD with LIKE searches
-- **Rentals Thread Group** (100 ops): Read and update operations
-- **Stocks Thread Group** (80 ops): Read and update availability
+### JMeter Testing
+- **Books Thread Group**: Full CRUD with JOIN queries to Authors
+- **Customers Thread Group**: Full CRUD with LIKE searches
 
 ## Output Files
 
@@ -177,11 +153,9 @@ When profiling is enabled (JMeter on Windows), the script generates a 2×2 grid 
 ## Test Database Schema
 
 The script automatically seeds the following test data:
-- **20 Authors**: Fiction, Mystery, Sci-Fi, Romance, Horror writers
-- **20 Books**: 2 books per author with titles, prices, ratings
-- **20 Customers**: Test customers with email, phone, addresses
-- **30 Stocks**: 3 copies per book (first 10 books)
-- **1 Genre**: Fiction (persistent)
+- **20 Authors**: Fiction, Mystery, Sci-Fi, Romance, Horror writers (Id, Name)
+- **20 Books**: 2 books per author with titles, years, prices, genres, and author references (Id, Title, Year, Price, Genre, AuthorId)
+- **20 Customers**: Test customers with names, emails, and countries (CustomerId, FirstName, LastName, Email, Country)
 
 ## Monitoring Metrics
 
@@ -227,33 +201,6 @@ Solution: pip install pandas matplotlib
 ```
 
 ## Examples
-
-### Full Test Suite
-```bash
-# 1. Cleanup previous test data
-python run_and_monitor_db_test.py --env target --cleanup
-
-# 2. Run Python load test
-python run_and_monitor_db_test.py --env target -c 10 -o 50
-
-# 3. Run JMeter test with profiling
-python run_and_monitor_db_test.py --tool jmeter --env target
-
-# 4. Compare results from both tests
-```
-
-### Performance Testing Workflow
-```bash
-# Light load (baseline)
-python run_and_monitor_db_test.py --env target -c 5 -o 20
-
-# Medium load
-python run_and_monitor_db_test.py --env target -c 10 -o 50
-
-# Heavy load (stress test)
-python run_and_monitor_db_test.py --env target -c 50 -o 200
-```
-
 ### JMeter Quick Test (No Profiling)
 ```bash
 # Fast execution without system monitoring

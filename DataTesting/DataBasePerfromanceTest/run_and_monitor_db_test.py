@@ -170,8 +170,6 @@ def cleanup_database(connection_string):
         
         # Delete in correct order to respect FK constraints
         delete_queries = [
-            ("Rentals", "DELETE FROM [dbo].[Rentals]"),
-            ("Stocks", "DELETE FROM [dbo].[Stocks]"),
             ("Books", "DELETE FROM [dbo].[Books]"),
             ("Authors", "DELETE FROM [dbo].[Authors]"),
             ("Customers", "DELETE FROM [dbo].[Customers]"),
@@ -197,34 +195,6 @@ def cleanup_database(connection_string):
         print()
 
 
-def seed_genres(connection_string):
-    """Seed database with default genre"""
-    print("Seeding Genres table...")
-    
-    try:
-        conn = pyodbc.connect(connection_string)
-        cursor = conn.cursor()
-        
-        # Check if genre already exists
-        cursor.execute("SELECT COUNT(*) FROM [dbo].[Genres] WHERE Name = 'Fiction'")
-        count = cursor.fetchone()[0]
-        
-        if count == 0:
-            cursor.execute("INSERT INTO [dbo].[Genres] (Name) VALUES ('Fiction')")
-            cursor.commit()
-            print("  ✓ Seeded 1 genre (Fiction)")
-        else:
-            print("  ✓ Genre already exists (Fiction)")
-        print()
-        
-        cursor.close()
-        conn.close()
-        
-    except Exception as e:
-        print(f"  Warning: Could not seed genres: {str(e)}")
-        print()
-
-
 def seed_database(connection_string):
     """Seed database with test data"""
     print("Seeding database with test data...")
@@ -243,44 +213,26 @@ def seed_database(connection_string):
             conn.close()
             seed_books(connection_string)
             seed_customers(connection_string)
-            seed_stocks(connection_string)
             return
         
         # Seed 20 authors
         authors = [
-            ("John", "Doe", "American", "Fiction writer", "john.doe@books.com"),
-            ("Jane", "Smith", "British", "Mystery author", "jane.smith@books.com"),
-            ("Robert", "Johnson", "Canadian", "Sci-Fi novelist", "robert.j@books.com"),
-            ("Emily", "Brown", "Australian", "Romance writer", "emily.b@books.com"),
-            ("Michael", "Davis", "American", "Thriller author", "michael.d@books.com"),
-            ("Sarah", "Wilson", "British", "Historical fiction", "sarah.w@books.com"),
-            ("David", "Martinez", "Spanish", "Adventure writer", "david.m@books.com"),
-            ("Lisa", "Anderson", "American", "Young adult author", "lisa.a@books.com"),
-            ("James", "Taylor", "Irish", "Horror writer", "james.t@books.com"),
-            ("Mary", "Thomas", "American", "Fantasy author", "mary.t@books.com"),
-            ("William", "Jackson", "British", "Crime novelist", "william.j@books.com"),
-            ("Patricia", "White", "Canadian", "Drama writer", "patricia.w@books.com"),
-            ("Richard", "Harris", "American", "Biography author", "richard.h@books.com"),
-            ("Linda", "Martin", "Australian", "Cookbook writer", "linda.m@books.com"),
-            ("Charles", "Thompson", "British", "Travel writer", "charles.t@books.com"),
-            ("Barbara", "Garcia", "Mexican", "Poetry author", "barbara.g@books.com"),
-            ("Joseph", "Martinez", "Spanish", "Philosophy writer", "joseph.m@books.com"),
-            ("Susan", "Robinson", "American", "Self-help author", "susan.r@books.com"),
-            ("Thomas", "Clark", "British", "Science writer", "thomas.c@books.com"),
-            ("Jessica", "Rodriguez", "Argentine", "Children's author", "jessica.r@books.com"),
+            "John Doe", "Jane Smith", "Robert Johnson", "Emily Brown", "Michael Davis",
+            "Sarah Wilson", "David Martinez", "Lisa Anderson", "James Taylor", "Mary Thomas",
+            "William Jackson", "Patricia White", "Richard Harris", "Linda Martin", "Charles Thompson",
+            "Barbara Garcia", "Joseph Martinez", "Susan Robinson", "Thomas Clark", "Jessica Rodriguez"
         ]
         
         inserted = 0
-        for first, last, nationality, bio, email in authors:
+        for name in authors:
             try:
                 cursor.execute("""
-                    INSERT INTO [dbo].[Authors] 
-                    (AuthorId, FirstName, LastName, BirthDate, Nationality, Bio, Email, Affiliation)
-                    VALUES (NEWID(), ?, ?, GETDATE(), ?, ?, ?, 'Independent')
-                """, first, last, nationality, bio, email)
+                    INSERT INTO [dbo].[Authors] (Name)
+                    VALUES (?)
+                """, name)
                 inserted += 1
             except Exception as e:
-                print(f"  Warning: Could not insert author {first} {last}: {str(e)}")
+                print(f"  Warning: Could not insert author {name}: {str(e)}")
         
         cursor.commit()
         print(f"  ✓ Seeded {inserted} authors successfully!")
@@ -292,7 +244,6 @@ def seed_database(connection_string):
         # Seed related data
         seed_books(connection_string)
         seed_customers(connection_string)
-        seed_stocks(connection_string)
         
     except Exception as e:
         print(f"  Warning: Could not seed authors: {str(e)}")
@@ -317,13 +268,9 @@ def seed_books(connection_string):
             conn.close()
             return
         
-        # Get existing author IDs and genre ID
-        cursor.execute("SELECT ID FROM [dbo].[Authors]")
+        # Get existing author IDs
+        cursor.execute("SELECT Id FROM [dbo].[Authors]")
         author_ids = [row[0] for row in cursor.fetchall()]
-        
-        cursor.execute("SELECT ID FROM [dbo].[Genres] WHERE Name = 'Fiction'")
-        genre_result = cursor.fetchone()
-        genre_id = genre_result[0] if genre_result else 1
         
         if not author_ids:
             print(f"  Warning: No authors found. Cannot create books.")
@@ -345,23 +292,24 @@ def seed_books(connection_string):
             "Science Explained", "Fairy Tales"
         ]
         
+        genres = ["Fiction", "Mystery", "Romance", "Sci-Fi", "Horror"]
+        
         inserted = 0
         for i, author_id in enumerate(author_ids[:10]):  # Limit to first 10 authors
             for book_num in range(2):
                 try:
                     title_idx = (i * 2 + book_num) % len(book_titles)
+                    genre = genres[i % len(genres)]
                     cursor.execute("""
                         INSERT INTO [dbo].[Books] 
-                        (Title, AuthorId, Year, Price, Description, GenreId, IssueDate, Rating)
-                        VALUES (?, ?, ?, ?, ?, ?, GETDATE(), ?)
+                        (Title, AuthorId, Year, Price, Genre)
+                        VALUES (?, ?, ?, ?, ?)
                     """, 
                     book_titles[title_idx], 
                     author_id, 
                     2020 + i, 
                     19.99 + (book_num * 5), 
-                    f"Description for {book_titles[title_idx]}", 
-                    genre_id,
-                    4 + (i % 2))
+                    genre)
                     inserted += 1
                 except Exception as e:
                     print(f"  Warning: Could not insert book for author {author_id}: {str(e)}")
@@ -398,36 +346,36 @@ def seed_customers(connection_string):
         
         # Seed 20 customers
         customers = [
-            ("Alice", "Johnson", "alice.j@email.com", "ID001", "1234567890"),
-            ("Bob", "Williams", "bob.w@email.com", "ID002", "1234567891"),
-            ("Carol", "Brown", "carol.b@email.com", "ID003", "1234567892"),
-            ("Dan", "Jones", "dan.j@email.com", "ID004", "1234567893"),
-            ("Eve", "Garcia", "eve.g@email.com", "ID005", "1234567894"),
-            ("Frank", "Miller", "frank.m@email.com", "ID006", "1234567895"),
-            ("Grace", "Davis", "grace.d@email.com", "ID007", "1234567896"),
-            ("Henry", "Rodriguez", "henry.r@email.com", "ID008", "1234567897"),
-            ("Ivy", "Martinez", "ivy.m@email.com", "ID009", "1234567898"),
-            ("Jack", "Hernandez", "jack.h@email.com", "ID010", "1234567899"),
-            ("Kelly", "Lopez", "kelly.l@email.com", "ID011", "1234567800"),
-            ("Leo", "Gonzalez", "leo.g@email.com", "ID012", "1234567801"),
-            ("Mia", "Wilson", "mia.w@email.com", "ID013", "1234567802"),
-            ("Nick", "Anderson", "nick.a@email.com", "ID014", "1234567803"),
-            ("Olivia", "Thomas", "olivia.t@email.com", "ID015", "1234567804"),
-            ("Paul", "Taylor", "paul.t@email.com", "ID016", "1234567805"),
-            ("Quinn", "Moore", "quinn.m@email.com", "ID017", "1234567806"),
-            ("Rose", "Jackson", "rose.j@email.com", "ID018", "1234567807"),
-            ("Sam", "Martin", "sam.m@email.com", "ID019", "1234567808"),
-            ("Tina", "Lee", "tina.l@email.com", "ID020", "1234567809"),
+            ("Alice", "Johnson", "alice.j@email.com", "USA"),
+            ("Bob", "Williams", "bob.w@email.com", "UK"),
+            ("Carol", "Brown", "carol.b@email.com", "Canada"),
+            ("Dan", "Jones", "dan.j@email.com", "Australia"),
+            ("Eve", "Garcia", "eve.g@email.com", "Spain"),
+            ("Frank", "Miller", "frank.m@email.com", "Germany"),
+            ("Grace", "Davis", "grace.d@email.com", "France"),
+            ("Henry", "Rodriguez", "henry.r@email.com", "Mexico"),
+            ("Ivy", "Martinez", "ivy.m@email.com", "Argentina"),
+            ("Jack", "Hernandez", "jack.h@email.com", "USA"),
+            ("Kelly", "Lopez", "kelly.l@email.com", "UK"),
+            ("Leo", "Gonzalez", "leo.g@email.com", "Canada"),
+            ("Mia", "Wilson", "mia.w@email.com", "Australia"),
+            ("Nick", "Anderson", "nick.a@email.com", "USA"),
+            ("Olivia", "Thomas", "olivia.t@email.com", "UK"),
+            ("Paul", "Taylor", "paul.t@email.com", "Ireland"),
+            ("Quinn", "Moore", "quinn.m@email.com", "New Zealand"),
+            ("Rose", "Jackson", "rose.j@email.com", "South Africa"),
+            ("Sam", "Martin", "sam.m@email.com", "India"),
+            ("Tina", "Lee", "tina.l@email.com", "Singapore"),
         ]
         
         inserted = 0
-        for first, last, email, id_card, mobile in customers:
+        for first, last, email, country in customers:
             try:
                 cursor.execute("""
                     INSERT INTO [dbo].[Customers] 
-                    (FirstName, LastName, Email, IdentityCard, UniqueKey, DateOfBirth, Mobile, RegistrationDate)
-                    VALUES (?, ?, ?, ?, NEWID(), DATEADD(year, -25, GETDATE()), ?, GETDATE())
-                """, first, last, email, id_card, mobile)
+                    (FirstName, LastName, Email, Country)
+                    VALUES (?, ?, ?, ?)
+                """, first, last, email, country)
                 inserted += 1
             except Exception as e:
                 print(f"  Warning: Could not insert customer {first} {last}: {str(e)}")
@@ -441,60 +389,6 @@ def seed_customers(connection_string):
         
     except Exception as e:
         print(f"  Warning: Could not seed customers: {str(e)}")
-        print()
-
-
-def seed_stocks(connection_string):
-    """Seed database with stock items"""
-    print("Seeding Stocks table...")
-    
-    try:
-        conn = pyodbc.connect(connection_string)
-        cursor = conn.cursor()
-        
-        # Check if stocks already exist
-        cursor.execute("SELECT COUNT(*) FROM [dbo].[Stocks]")
-        existing_count = cursor.fetchone()[0]
-        
-        if existing_count >= 30:
-            print(f"  Stocks table already has {existing_count} records. Skipping.")
-            cursor.close()
-            conn.close()
-            return
-        
-        # Get existing book IDs
-        cursor.execute("SELECT ID FROM [dbo].[Books]")
-        book_ids = [row[0] for row in cursor.fetchall()]
-        
-        if not book_ids:
-            print(f"  Warning: No books found. Cannot create stock items.")
-            cursor.close()
-            conn.close()
-            return
-        
-        # Create 3 stock items per book
-        inserted = 0
-        for book_id in book_ids[:10]:  # Limit to first 10 books
-            for copy in range(3):
-                try:
-                    cursor.execute("""
-                        INSERT INTO [dbo].[Stocks] 
-                        (BookId, UniqueKey, IsAvailable)
-                        VALUES (?, NEWID(), ?)
-                    """, book_id, 1 if copy < 2 else 0)  # First 2 copies available
-                    inserted += 1
-                except Exception as e:
-                    print(f"  Warning: Could not insert stock for book {book_id}: {str(e)}")
-        
-        cursor.commit()
-        print(f"  ✓ Seeded {inserted} stock items successfully!")
-        print()
-        
-        cursor.close()
-        conn.close()
-        
-    except Exception as e:
-        print(f"  Warning: Could not seed stocks: {str(e)}")
         print()
 
 
@@ -534,33 +428,71 @@ def run_jmeter_test(env_config, results_dir, timeout=600):
     print(f"  Timeout: {timeout} seconds")
     print()
     print_color("  Starting JMeter test...", Colors.YELLOW)
+    print()
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # Start JMeter process with real-time output
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                   text=True, bufsize=1, universal_newlines=True)
         
-        if result.returncode == 0:
-            print_color("  ✓ JMeter test completed successfully", Colors.GREEN)
+        print_color("  JMeter Execution Progress:", Colors.CYAN)
+        print_color("  " + "="*68, Colors.CYAN)
+        
+        # Monitor output in real-time
+        start_time = time.time()
+        last_summary = None
+        
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+                
+            # Show summary lines
+            if 'summary +' in line or 'summary =' in line:
+                if 'summary +' in line:
+                    # Intermediate summary
+                    summary_part = line.split('summary +')[1].strip()
+                    elapsed = int(time.time() - start_time)
+                    print(f"  [{elapsed}s] {summary_part}")
+                    last_summary = summary_part
+                elif 'summary =' in line:
+                    # Final summary
+                    summary_part = line.split('summary =')[1].strip()
+                    last_summary = summary_part
             
-            # Parse JMeter log for summary
-            try:
-                with open(log_file, 'r') as f:
-                    log_content = f.read()
-                    if 'summary =' in log_content:
-                        summary_lines = [line for line in log_content.split('\n') if 'summary =' in line]
-                        if summary_lines:
-                            print()
-                            print_color("  Test Summary:", Colors.CYAN)
-                            for line in summary_lines[-1:]:
-                                print(f"    {line.split('summary =')[1].strip()}")
-            except Exception:
-                pass
+            # Show important events
+            elif 'Starting' in line and 'thread' in line.lower():
+                print_color(f"  ▸ {line.strip()}", Colors.YELLOW)
+            elif 'Finished' in line and 'thread' in line.lower():
+                pass  # Skip individual thread finish messages
+            elif 'Notifying test listeners of end of test' in line:
+                print_color(f"  ▸ Test execution completed, generating reports...", Colors.GREEN)
+            elif 'Generating Dashboard' in line:
+                print_color(f"  ▸ Generating HTML dashboard...", Colors.GREEN)
+            elif 'Dashboard generated' in line:
+                print_color(f"  ▸ Dashboard generation completed", Colors.GREEN)
+        
+        # Wait for process to complete
+        return_code = process.wait(timeout=timeout)
+        
+        print_color("  " + "="*68, Colors.CYAN)
+        print()
+        
+        if return_code == 0:
+            print_color("  ✓ JMeter test completed successfully", Colors.GREEN)
+            if last_summary:
+                print()
+                print_color("  Final Summary:", Colors.CYAN)
+                print(f"    {last_summary}")
         else:
-            print_color(f"  ✗ JMeter test failed with return code {result.returncode}", Colors.RED)
-            if result.stderr:
-                print(f"    Error: {result.stderr[:200]}")
+            print_color(f"  ✗ JMeter test failed with return code {return_code}", Colors.RED)
     
     except subprocess.TimeoutExpired:
         print_color("  ✗ JMeter test timed out", Colors.RED)
+        try:
+            process.kill()
+        except:
+            pass
     except Exception as e:
         print_color(f"  ✗ Error running JMeter: {e}", Colors.RED)
     
@@ -839,7 +771,6 @@ Examples:
     # Step 3: Seeding (unless skipped)
     if not args.no_seed:
         print_header("[Step 2.5/7] Seeding Database")
-        seed_genres(connection_string)
         seed_database(connection_string)
         print()
     
